@@ -1,11 +1,10 @@
 *.pyc
 *.sw*
-*.npy
 *.user
+*.model
 *.1
 *~
 1.VGG_triplet-train/1.pcl-save2file_OR_visualize/build
 .vscode
 3.2D_2_3D-train/1.pcl-save2file_OR_visualize/build
 _*/
-.*
