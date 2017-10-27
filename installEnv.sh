@@ -10,10 +10,10 @@ cd ~/Downloads
 if which conda >/dev/null; then
     echo "conda is available, skip the conda installation."
 else
-    echo "conda command is not available, preparing to install."
+    echo "conda command is not available, preparing to install Miniconda. Please accept it"
     wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
     bash Miniconda2-latest-Linux-x86_64.sh
-    . .bashrc    # to enable the conda command
+    . ~/.bashrc    # to enable the conda command
 fi
 
 # config .bashrc, can change the CUDA_ROOT path
@@ -25,7 +25,8 @@ echo 'export LIBRARY_PATH=$CUDA_ROOT/lib64:$LIBRARY_PATH' >> ~/.bashrc
 
 # create new environment
 if conda info --env | grep -w "$conda_env_name" >/dev/null; then
-    echo "The '$conda_env_name' conda env exists."    # but the env will be visible even thoug the installation was terminated. In this case you should delete this conda env first.else    # if the env does not exist.
+    echo "The '$conda_env_name' conda env exists."    # but the env will be visible even thoug the installation was terminated. In this case you should delete this conda env first.
+else    # if the env does not exist.
     conda create -n $conda_env_name python=2.7 anaconda    # install anaconda with the majority of the depandencies, (very large)
 fi
 . activate $conda_env_name      # seperate environment. Can use command `which python` to check the path of the local python/packeges
