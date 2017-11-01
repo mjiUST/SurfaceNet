@@ -68,8 +68,10 @@ def embeddingPairs2simil(embeddings, N_views, inScope_cubes_vs_views, embeddingP
         _embeddingPairs_sub = embeddings[_i_cubes, _j_viewPairs] # (N_cubes, N_views, D_embedding) --> (N_batch, D_embedding), only generate when needed, in order to save memory
         dissimilarity_1D_list.append(embeddingPair2simil_fn(_embeddingPairs_sub))   # (N_batch, D_embedding) --> (N_batch/2, )
     dissimilarity = np.vstack(dissimilarity_1D_list).reshape((N_cubes, N_viewPairs)) # (N_cubes, N_viewPairs)
-    inScope_cubes_vs_viewPairs = inScope_cubes_vs_views[:, viewPairs[:,0]] & inScope_cubes_vs_views[:, viewPairs[:,1]]  # (N_cubes, N_viewPairs)
-    dissimilarity *= inScope_cubes_vs_viewPairs    # (N_cubes, N_viewPairs)
+
+    # Don't mask the invalid viewPairs (with at least 1 outScope view). Let the network to decide how to choose. And robust to the case with N < N_viewPairs4inference possible view pairs.
+    # inScope_cubes_vs_viewPairs = inScope_cubes_vs_views[:, viewPairs[:,0]] & inScope_cubes_vs_views[:, viewPairs[:,1]]  # (N_cubes, N_viewPairs)
+    # dissimilarity *= inScope_cubes_vs_viewPairs    # (N_cubes, N_viewPairs)
     return dissimilarity
 
 def selectFromSimilarity(dissimilarityProb, N_viewPairs4inference):

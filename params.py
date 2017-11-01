@@ -14,10 +14,16 @@ __GPUMemoryGB = 12  # how large is your GPU memory (GB)
 __input_data_rootFld = "./inputs"
 __output_data_rootFld = "./outputs"
 
+
 ###########################
 #   several modes:
 #   "train_xxx" "reconstruct_model"
 ###########################
+__DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
+__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet"
+__input_data_rootFld = __DEBUG_input_data_rootFld if os.path.exists(__DEBUG_input_data_rootFld) else __input_data_rootFld
+__output_data_rootFld = __DEBUG_output_data_rootFld if os.path.exists(__DEBUG_output_data_rootFld) else __output_data_rootFld
+
 
 if whatUWant is "reconstruct_model": 
     """

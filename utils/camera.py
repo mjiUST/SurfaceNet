@@ -295,7 +295,7 @@ def viewPairAngles_wrt_pts(cameraTs, pts_xyz):
     """
 
     unitize_array = lambda array, axis: array/np.linalg.norm(array, axis=axis, ord=2, keepdims=True)
-    clac_arccos = lambda cos_values: np.arccos(np.clip(cos_values, -1.0, 1.0))  # TODO does it need clip ?
+    calc_arccos = lambda cos_values: np.arccos(np.clip(cos_values, -1.0, 1.0))  # TODO does it need clip ?
     N_views = cameraTs.shape[0]
     vector_pts2cameras = pts_xyz[:,None,:] - cameraTs[None,...]   # (N_pts, 1, 3) - (1, N_views, 3) ==> (N_pts, N_views, 3)
     unit_vector_pts2cameras = unitize_array(vector_pts2cameras, axis = -1)    # (N_pts, N_views, 3)  unit vector along axis=-1
@@ -305,7 +305,7 @@ def viewPairAngles_wrt_pts(cameraTs, pts_xyz):
     # viewPairCosine_wrt_pts = np.matmul(unit_vector_pts2cameras, unit_vector_pts2cameras.transpose((0,2,1)))
     viewPairs = utils.k_combination_np(range(N_views), k = 2)     # (N_combinations, 2)
     viewPairCosine_wrt_pts = np.sum(np.multiply(unit_vector_pts2cameras[:, viewPairs[:,0]], unit_vector_pts2cameras[:, viewPairs[:,1]]), axis=-1)    # (N_pts, N_combinations, 3) elementwise multiplication --> (N_pts, N_combinations) sum over the last axis
-    viewPairAngle_wrt_pts = clac_arccos(viewPairCosine_wrt_pts)     # (N_pts, N_combinations)
+    viewPairAngle_wrt_pts = calc_arccos(viewPairCosine_wrt_pts)     # (N_pts, N_combinations)
     return viewPairAngle_wrt_pts
 
 
