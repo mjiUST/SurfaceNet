@@ -21,8 +21,12 @@ __output_data_rootFld = "./outputs"
 ###########################
 __DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
 __DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet"
-__input_data_rootFld = __DEBUG_input_data_rootFld if os.path.exists(__DEBUG_input_data_rootFld) else __input_data_rootFld
-__output_data_rootFld = __DEBUG_output_data_rootFld if os.path.exists(__DEBUG_output_data_rootFld) else __output_data_rootFld
+__DEBUG_input_data_rootFld_exists = os.path.exists(__DEBUG_input_data_rootFld)
+__DEBUG_output_data_rootFld_exists = os.path.exists(__DEBUG_output_data_rootFld)
+__input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_exists else __input_data_rootFld
+__output_data_rootFld = __DEBUG_output_data_rootFld if __DEBUG_output_data_rootFld_exists else __output_data_rootFld
+
+debug_BB = False
 
 
 if whatUWant is "reconstruct_model": 
@@ -39,6 +43,7 @@ if whatUWant is "reconstruct_model":
     elif __datasetName is 'Middlebury':
         __modelList = ["dinoSparseRing"]     # ["dinoSparseRing", "..."]
 
+    __cube_D = 64 #32/64 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
     __min_prob = 0.46 # in order to save memory, filter out the voxels with prob < min_prob
     __tau = 0.7     # fix threshold for thinning
     __gamma = 0.8   # used in the ray pooling procedure
@@ -80,7 +85,6 @@ if whatUWant is "reconstruct_model":
     if __use_pretrained_model:
         __layerNameList_2_load = ["output_SurfaceNet_reshape","output_softmaxWeights"] ##output_fusionNet/fuse_op_reshape
         __pretrained_SurfaceNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/2D_2_3D-19-0.918_0.951.model') # allDTU
-    __cube_D = 64 #32/64 # size of the CVC = __cube_D ^3
     __cube_Dcenter = {32:26, 64:52}[__cube_D] # only keep the center part of the cube because of boundary effect of the convNet.
 
     ####################
@@ -103,8 +107,6 @@ elif whatUWant is "train_xxx":
 ###########################
 #   params rarely change
 ###########################
-debug_BB = False
-
 __MEAN_CVC_RGBRGB = np.asarray([123.68,  116.779,  103.939, 123.68,  116.779,  103.939]).astype(np.float32) # RGBRGB order (VGG mean)
 __MEAN_PATCHES_BGR = np.asarray([103.939,  116.779,  123.68]).astype(np.float32)
 
@@ -139,7 +141,7 @@ def load_modelSpecific_params(datasetName, model):
 
     if datasetName is "DTU":
         datasetFolder = os.path.join(__input_data_rootFld, 'DTU_MVS')
-        imgNamePattern = "Rectified/scan{}/rect_#_3_r5000.jpg".format(model)    # replace # to {:03}  TODO: replace the jpg --> png
+        imgNamePattern = "Rectified/scan{}/rect_#_3_r5000.{}".format(model, 'png' if __DEBUG_input_data_rootFld_exists else 'jpg')    # replace # to {:03} 
         poseNamePattern = "SampleSet/MVS Data/Calibration/cal18/pos_#.txt"  # replace # to {:03}
         N_viewPairs4inference = [5]
         resol = np.float32(0.4) #0.4 resolution / the distance between adjacent voxels

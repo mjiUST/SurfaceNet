@@ -33,7 +33,7 @@ if __name__ == "__main__":
                 kwargs = {'init_probThresh': 0.5, 'min_probThresh': 0.5, 'max_probThresh': 0.9, 'D_cube': params.__cube_Dcenter, \
                         'N_refine_iter': params.__N_refine_iter, 'save_result_fld': save_npz_file_path.split('.npz')[0], \
                         'rayPool_thresh': int(round(params.__gamma * N_viewPairs4inference*2)), 'beta': params.__beta, \
-                        'RGB_visual_ply': False, 'save2ply_before_adapthresh': True, 'npz_file': save_npz_file_path }
+                        'RGB_visual_ply': False or params.__DEBUG_output_data_rootFld_exists, 'save2ply_before_adapthresh': True, 'npz_file': save_npz_file_path }
                 ply_filePath = adapthresh.adapthresh(**kwargs)
 
     elif params.whatUWant is 'train_model':

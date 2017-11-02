@@ -95,6 +95,8 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
     When N_pyramid > 1, up/down sampling will be used to crop patches. 
     When N_pyramid --> Inf, approximately, this operation is nothing but the one that the projected region will be resized to a patch with size = patchSize. Since resize all the projection region is time comsuming, we use small N_pyramid to approximate this operation.
 
+    If pyramidRate == 1, there are infinite pyramid layers. In this case we only set one img in the pyramid.
+
     ------------
     inputs:
         img: the input image with any shape, (h,w,3/1)
@@ -134,6 +136,13 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
     True
     >>> np.array_equiv(patches[3,32,32,:], img[122,122])   # 4x downsample. equals the center pixel
     True
+    >>> patches_identical = cropImgPatches(img = img, range_h = range_h, range_w = range_w, patchSize = 64, pyramidRate = 1, interp_order = 0)  # there is ONE image in the pyramid when pyramidRate=1
+    >>> np.allclose(patches_identical[0], patches_identical[1])
+    True
+    >>> np.allclose(patches_identical[1], patches_identical[2])
+    True
+    >>> np.allclose(patches_identical[2], patches_identical[3])
+    True
     """
 
     N_patches = range_h.shape[0]
@@ -149,7 +158,7 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
 
     # determine how many layers of the image pyramid
     patchSizeRatio = float(patchSize) / range_hw_max     # (N_patches,)
-    logRatio = np.log(patchSizeRatio) / np.log(pyramidRate)     # element-wise log
+    logRatio = (np.log(patchSizeRatio) / np.log(pyramidRate)) if pyramidRate is not 1 else np.ones(patchSizeRatio.shape)     # element-wise log, if pyramidRate == 1, there are infinite pyramid layers. In this case we only set one img in the pyramid.
     logRatio_int = np.floor(logRatio)  # -1.2 --> -2; 3.7 --> 3
 
     patches = np.empty((N_patches, patchSize, patchSize, img_c), dtype=img_dtype)
