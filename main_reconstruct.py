@@ -2,7 +2,6 @@ import numpy as np #import params
 import sys
 import os
 import math
-import math
 import time
 import progressbar
 
@@ -86,7 +85,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
             e_viewPairs = patches_embedding,  \
             d_viewPairs = dissimilarity,  \
             validCubes = validCubes,  \
-            cubeCenters_xyz = cubes_param_np['xyz'], \
+            cubeCenters_xyz = cubes_param_np['xyz'] + cube_D_mm / 2., \
             viewPair_relativeImpt_fn = viewPair_relativeImpt_fn,  \
             batchSize = params.__batchSize_viewPair_w,  \
             N_viewPairs4inference = N_viewPairs4inference, \

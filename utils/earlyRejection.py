@@ -38,7 +38,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
             continue
         else:
             _patches_embedding_inScope = np.zeros((N_cubes_inScope, D_embedding), dtype=np.float32)     # (N_cubes_inScope, N_views, D_embedding)
-            _patches = image.cropImgPatches(img = _image, range_h = projection_h_range[_view][_inScope], range_w = projection_w_range[_view][_inScope], patchSize = patchSize, pyramidRate = 1.5, interp_order = 2)  # (N_cubes_inScope, patchSize, patchSize, 3/1)
+            _patches = image.cropImgPatches(img = _image, range_h = projection_h_range[_view][_inScope], range_w = projection_w_range[_view][_inScope], patchSize = patchSize, pyramidRate = 1, interp_order = 2)  # (N_cubes_inScope, patchSize, patchSize, 3/1)
             _patches_preprocessed = image.preprocess_patches(_patches.astype(np.float32), mean_BGR = patches_mean_bgr)
             for _batch in utils.yield_batch_npBool(N_all = N_cubes_inScope, batch_size = batchSize):      # note that bool selector: _batch.shape == (N_cubes,)
                 _patches_embedding_inScope[_batch] = patch2embedding_fn(_patches_preprocessed[_batch])     # (N_batch, 3/1, patchSize, patchSize) --> (N_batch, D_embedding). similarityNet: patch --> embedding
@@ -68,8 +68,10 @@ def embeddingPairs2simil(embeddings, N_views, inScope_cubes_vs_views, embeddingP
         _embeddingPairs_sub = embeddings[_i_cubes, _j_viewPairs] # (N_cubes, N_views, D_embedding) --> (N_batch, D_embedding), only generate when needed, in order to save memory
         dissimilarity_1D_list.append(embeddingPair2simil_fn(_embeddingPairs_sub))   # (N_batch, D_embedding) --> (N_batch/2, )
     dissimilarity = np.vstack(dissimilarity_1D_list).reshape((N_cubes, N_viewPairs)) # (N_cubes, N_viewPairs)
-    inScope_cubes_vs_viewPairs = inScope_cubes_vs_views[:, viewPairs[:,0]] & inScope_cubes_vs_views[:, viewPairs[:,1]]  # (N_cubes, N_viewPairs)
-    dissimilarity *= inScope_cubes_vs_viewPairs    # (N_cubes, N_viewPairs)
+
+    # Don't mask the invalid viewPairs (with at least 1 outScope view). Let the network to decide how to choose. And robust to the case with N < N_viewPairs4inference possible view pairs.
+    # inScope_cubes_vs_viewPairs = inScope_cubes_vs_views[:, viewPairs[:,0]] & inScope_cubes_vs_views[:, viewPairs[:,1]]  # (N_cubes, N_viewPairs)
+    # dissimilarity *= inScope_cubes_vs_viewPairs    # (N_cubes, N_viewPairs)
     return dissimilarity
 
 def selectFromSimilarity(dissimilarityProb, N_viewPairs4inference):
