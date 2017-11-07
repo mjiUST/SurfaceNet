@@ -132,7 +132,6 @@ def load_modelSpecific_params(datasetName, model):
         datasetFolder: root folder of this dataset
         imgNamePattern: pattern of the img path, replace # to view index
         poseNamePattern: 
-        outputFolder: 
         N_viewPairs4inference: how many viewPairs used for reconstruction
         resol: size of voxel
         BB: Bounding Box of this scene.  np(2,3) float32
@@ -164,7 +163,6 @@ def load_modelSpecific_params(datasetName, model):
             viewList = range(7,13) #range(1,16)
         else:
             raise Warning('current model is unexpected: '+model+'.') 
-    outputFolder = os.path.join(__output_data_rootFld, '{}_{}/{}_{}_{:0.3}/'.format(datasetName, __cube_D, model, N_viewPairs4inference, resol))
-    return datasetFolder, imgNamePattern, poseNamePattern, outputFolder, N_viewPairs4inference, resol, np.array(BB, dtype=np.float32), viewList
+    return datasetFolder, imgNamePattern, poseNamePattern, N_viewPairs4inference, resol, np.array(BB, dtype=np.float32), viewList
 
 

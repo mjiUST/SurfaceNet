@@ -6,9 +6,6 @@ import sys
 import time
 import itertools
 
-sys.path.append("../")
-import params
-
 
 def access_partial_Occupancy_ijk(Occ_ijk, shift, D_cube):
     """
@@ -92,8 +89,8 @@ def sparseOccupancy_AND_XOR(Occ1, Occ2):
 
 def adapthresh(save_result_fld, N_refine_iter, D_cube, \
         init_probThresh, min_probThresh, max_probThresh,\
-        rayPool_thresh, beta, npz_file,\
-        RGB_visual_ply=True, save2ply_before_adapthresh=True):
+        rayPool_thresh, beta, gamma, npz_file,\
+        RGB_visual_ply=True):
         
     data = sparseCubes.load_sparseCubes(npz_file)
     prediction_list, rgb_list, vxl_ijk_list, rayPooling_votes_list, \
@@ -102,11 +99,12 @@ def adapthresh(save_result_fld, N_refine_iter, D_cube, \
     ## before adapthresh, with init_probThresh and rayPool_thresh
     vxl_mask_init_list = sparseCubes.filter_voxels(vxl_mask_list=[],prediction_list=prediction_list, prob_thresh=init_probThresh,\
             rayPooling_votes_list=rayPooling_votes_list, rayPool_thresh=rayPool_thresh)
-    if save2ply_before_adapthresh:
-        if not os.path.exists(save_result_fld):
-            os.makedirs(save_result_fld)
-        sparseCubes.save_sparseCubes_2ply(vxl_mask_init_list, vxl_ijk_list, rgb_list, param_np, \
-                ply_filePath=os.path.join(save_result_fld, '{:.2}_{}.ply'.format(init_probThresh, rayPool_thresh)), normal_list=None)
+
+    save_result_fld = os.path.join(save_result_fld, "adapThresh_gamma{:.3}_beta{}".format(gamma, beta))
+    if not os.path.exists(save_result_fld):
+        os.makedirs(save_result_fld)
+    sparseCubes.save_sparseCubes_2ply(vxl_mask_init_list, vxl_ijk_list, rgb_list, param_np, \
+            ply_filePath=os.path.join(save_result_fld, 'initialization.ply'), normal_list=None) 
 
     neigh_shifts = np.asarray([[1,0,0],[0,1,0],[0,0,1],[-1,0,0],[0,-1,0],[0,0,-1]]).astype(np.int8)
     thresh_perturb_list = [0.1, 0, -0.1] # note: the order matters, make sure argmin(cost) will first hit 0 before the perturb which can enlarge the pcd.
@@ -120,9 +118,6 @@ def adapthresh(save_result_fld, N_refine_iter, D_cube, \
         if vxl_mask_init_list[_n].sum() > 0:
             cube_ijk2indx.update({tuple(_ijk): _n})
 
-    save_result_fld = os.path.join(save_result_fld, "{}_ANDweight".format(beta))
-    if not os.path.exists(save_result_fld):
-        os.makedirs(save_result_fld)
 
     vxl_mask_list = copy.deepcopy(vxl_mask_init_list)
     occupied_vxl = lambda indx, thresh_shift: sparseCubes.filter_voxels(vxl_mask_list = [copy.deepcopy(vxl_mask_list[indx])],\
@@ -169,12 +164,12 @@ def adapthresh(save_result_fld, N_refine_iter, D_cube, \
 
         vxl_mask_list = sparseCubes.filter_voxels(vxl_mask_list=vxl_mask_list,prediction_list=prediction_list, prob_thresh=probThresh_list,\
                 rayPooling_votes_list=None, rayPool_thresh=None)
-        ply_filePath = os.path.join(save_result_fld, 'iter{}_adapthresh.ply'.format(_iter))
+        ply_filePath = os.path.join(save_result_fld, 'iter{}.ply'.format(_iter))
         sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
                 param_np, ply_filePath=ply_filePath, normal_list=None)
         if RGB_visual_ply:
             sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, tmp_rgb_list, \
-                    param_np, ply_filePath=os.path.join(save_result_fld, 'iter{}_tmprgb.ply'.format(_iter)), normal_list=None)
+                    param_np, ply_filePath=os.path.join(save_result_fld, 'iter{}_tmprgb4debug.ply'.format(_iter)), normal_list=None)
         print 'updated iteration {}. It took {}s'.format(_iter, time.time() - time_iter)
     return ply_filePath
 

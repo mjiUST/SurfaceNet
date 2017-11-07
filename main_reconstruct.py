@@ -146,7 +146,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     bar.finish()
 
     time_ply = time.time()
-    ply_filename = os.path.join(outputFolder, 'model{}-{}views.ply'.format(model, N_views))
+    ply_filename = os.path.join(outputFolder, 'fixThresh_tau{:.3}_gamma{:.3}.ply'.format(params.__tau, params.__gamma))
     vxl_mask_list = sparseCubes.filter_voxels(vxl_mask_list=[],prediction_list=prediction_list, prob_thresh= params.__tau,\
             rayPooling_votes_list=rayPooling_votes_list, rayPool_thresh = params.__gamma * N_viewPairs4inference * 2)    # thinning (ray pooling)
     # TODO: fix thresh thinning (prob_thresh)
