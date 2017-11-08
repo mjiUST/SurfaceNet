@@ -1,5 +1,5 @@
 # SurfaceNet
-M. Ji, H. Zheng, J. Gall, Y. Liu, and L. Fang. [SurfaceNet: An End-to-end 3D Neural Network for Multiview Stereopsis](https://arxiv.org/abs/1708.01749). ICCV, 2017
+M. Ji, H. Zheng, J. Gall, Y. Liu, and L. Fang. [SurfaceNet: An End-to-end 3D Neural Network for Multiview Stereopsis](https://www.researchgate.net/publication/318920947_SurfaceNet_An_End-to-end_3D_Neural_Network_for_Multiview_Stereopsis). ICCV, 2017
 
 
 ## How to run
