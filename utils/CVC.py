@@ -1,5 +1,5 @@
 # CVC: Colored Voxel Cube
-
+import copy
 import numpy as np
 
 def clusteringFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
@@ -25,7 +25,16 @@ def clusteringFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
     >>> adjacencyMatrix |= adjacencyMatrix.T    # symetric
     >>> clusteringFromAdjacency(adjacencyMatrix)
     ([0, 2, 5, 1, 3, 4], [0, 1, 4])
+    >>> adjacencyMatrix = np.zeros((4,4), dtype=np.bool)
+    >>> adjacencyMatrix[[0,1,2,0,1], [0,1,2,1,0]] = True    # should ignore the diagonal elements
+    >>> clusteringFromAdjacency(adjacencyMatrix)
+    ([0, 1, 2, 3], [0, 2, 3])
     """
+
+    # If don't deepcopy the inputs, the recursive functions may not work as expected!
+    adjacencyMatrix = copy.deepcopy(adjacencyMatrix)
+    indexes = copy.deepcopy(indexes)
+    indexesMask = copy.deepcopy(indexesMask)
 
     N_pts = adjacencyMatrix.shape[0]
 
@@ -49,6 +58,9 @@ def clusteringFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
     return indexesMask, cluster_1stIndex if indexes[0] is 0 else None
 
 
+#adjacencyMatrix = np.zeros((4,4), dtype=np.bool)
+#adjacencyMatrix[[0,1,2,0,1], [0,1,2,1,0]] = True    # should ignore the diagonal elements
+#clusteringFromAdjacency(adjacencyMatrix)
 
 def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, xyz, resol, densityCube, colorize_cube_D, visualization_ON=False):
     """ 
