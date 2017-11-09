@@ -2,8 +2,53 @@
 
 import numpy as np
 
+def clusteringFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
+    """
+    clustering from 2D adjacency matrix
+    recursive function
 
-   
+    -----------
+    inputs:
+        adjacencyMatrix: 2D symetric matrix
+        indexes: in the 1st loop, by default is [0]; in the following loops, list the adjacent pts indexes.
+        indexesMask: mask the indexes that has been processed.
+
+    -----------
+    outputs:
+        clustersIndexes: 3 clusters [1,3, 4, 0,2,5] for a 6x6 matrix.
+        clusters_1stIndex: [0,2,3], define the clusters: [(1,3), (4), (0,2,5)]  
+
+    -----------
+    examples:
+    >>> adjacencyMatrix = np.zeros((6,6), dtype=np.bool)
+    >>> adjacencyMatrix[[1,0,0,2], [3,2,5,5]] = True
+    >>> adjacencyMatrix |= adjacencyMatrix.T    # symetric
+    >>> clusteringFromAdjacency(adjacencyMatrix)
+    ([0, 2, 5, 1, 3, 4], [0, 1, 4])
+    """
+
+    N_pts = adjacencyMatrix.shape[0]
+
+    if indexes[0] is 0:
+        indexes = range(N_pts)
+        clusters = []     
+        cluster_1stIndex = []
+    for _index in indexes: 
+        if _index in indexesMask:
+            continue
+        _adjacentIndexes, = np.where(adjacencyMatrix[_index])    # all the adjacent index, [0,1,1,0] --> [1,2]
+        _adjacentIndexes = _adjacentIndexes[_adjacentIndexes > _index]  # only consider the upper diagonal
+        indexesMask.append(_index)
+        if len(_adjacentIndexes) is 0:
+            if indexes[0] is 0:
+                cluster_1stIndex.append(_index)
+            continue
+        indexesMask, _ = clusteringFromAdjacency(adjacencyMatrix, indexes = _adjacentIndexes, indexesMask = indexesMask)
+        if indexes[0] is 0:
+            cluster_1stIndex.append(_index)
+    return indexesMask, cluster_1stIndex if indexes[0] is 0 else None
+
+
 
 def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, xyz, resol, densityCube, colorize_cube_D, visualization_ON=False):
     """ 
@@ -125,4 +170,7 @@ def preprocess_augmentation(gt_sub, X_sub, mean_rgb, augment_ON = True, crop_ON 
 
 
 
+
+import doctest
+doctest.testmod()
 
