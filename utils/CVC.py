@@ -2,9 +2,9 @@
 import copy
 import numpy as np
 
-def clusteringFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
+def clusterFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
     """
-    clustering from 2D adjacency matrix
+    cluster from 2D adjacency matrix
     recursive function
 
     -----------
@@ -23,11 +23,11 @@ def clusteringFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
     >>> adjacencyMatrix = np.zeros((6,6), dtype=np.bool)
     >>> adjacencyMatrix[[1,0,0,2], [3,2,5,5]] = True
     >>> adjacencyMatrix |= adjacencyMatrix.T    # symetric
-    >>> clusteringFromAdjacency(adjacencyMatrix)
+    >>> clusterFromAdjacency(adjacencyMatrix)
     ([0, 2, 5, 1, 3, 4], [0, 1, 4])
     >>> adjacencyMatrix = np.zeros((4,4), dtype=np.bool)
     >>> adjacencyMatrix[[0,1,2,0,1], [0,1,2,1,0]] = True    # should ignore the diagonal elements
-    >>> clusteringFromAdjacency(adjacencyMatrix)
+    >>> clusterFromAdjacency(adjacencyMatrix)
     ([0, 1, 2, 3], [0, 2, 3])
     """
 
@@ -52,15 +52,12 @@ def clusteringFromAdjacency(adjacencyMatrix, indexes = [0], indexesMask = []):
             if indexes[0] is 0:
                 cluster_1stIndex.append(_index)
             continue
-        indexesMask, _ = clusteringFromAdjacency(adjacencyMatrix, indexes = _adjacentIndexes, indexesMask = indexesMask)
+        indexesMask, _ = clusterFromAdjacency(adjacencyMatrix, indexes = _adjacentIndexes, indexesMask = indexesMask)
         if indexes[0] is 0:
             cluster_1stIndex.append(_index)
     return indexesMask, cluster_1stIndex if indexes[0] is 0 else None
 
 
-#adjacencyMatrix = np.zeros((4,4), dtype=np.bool)
-#adjacencyMatrix[[0,1,2,0,1], [0,1,2,1,0]] = True    # should ignore the diagonal elements
-#clusteringFromAdjacency(adjacencyMatrix)
 
 def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, xyz, resol, densityCube, colorize_cube_D, visualization_ON=False):
     """ 
