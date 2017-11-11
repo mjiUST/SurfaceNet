@@ -24,16 +24,24 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
     -------
     examples:
     >>> vxl_ijk_list = [np.array([[1,0,0], [2,2,2], [3,3,3], [1,0,1], [2,3,3], [0,3,3]]), \
-             np.array([[0,2,3], [0,1,0], [0,0,0], [0,3,3]])]
+                        np.array([[0,2,3], [0,1,0], [0,0,0], [0,3,3]]), \
+                        np.array([[0,2,3], [0,1,0], [0,2,3]]), \
+                        np.array([[0,2,3], [0,1,3], [0,0,0], [0,3,3], [3,3,3]], dtype=np.uint8) ]
     >>> vxl_mask_list = [np.array([1,0,1,1,1,1], dtype=np.bool), \
-             np.array([1,1,0,1], dtype=np.bool)]
+                         np.array([1,1,0,1], dtype=np.bool), \
+                         np.array([0,0,0], dtype=np.bool), \
+                         np.array([1,1,1,1,1], dtype=np.bool)]
     >>> __cluster_inCube__(vxl_ijk_list, vxl_mask_list)     # the masked index should not appear
-    ([[0, 2, 1, 3, 4], [0, 2, 1]], [[0, 1, 4], [0, 1]])
+    ([[0, 2, 1, 3, 4], [0, 2, 1], [], [0, 1, 3, 2, 4]], [[0, 2, 4], [0, 2], [], [0, 3, 4]])
     """
 
     indexClusters_list, clusters_1stIndex_list = [], []
     for _cube, _select in enumerate(vxl_mask_list):
-        vxl_ijk = vxl_ijk_list[_cube][_select]  # (N_pts, 3)
+        if _select.sum() == 0:
+            indexClusters_list.append([])
+            clusters_1stIndex_list.append([])
+            continue
+        vxl_ijk = vxl_ijk_list[_cube][_select].astype(np.int64)  # (N_pts, 3)
         adjacencyMatrix_ijk = np.abs((vxl_ijk[None, :] - vxl_ijk[:, None]))  # (1, N_pts, 3) - (N_pts, 1, 3) --> (N_pts, N_pts, 3)
         adjacencyMatrix = np.sum(adjacencyMatrix_ijk <= 1, axis=-1) == 3    # large distance --> False --> sum along ijk cannot reach 3.
         indexClusters, clusters_1stIndex = CVC.clusterFromAdjacency(adjacencyMatrix)   # (N_pts, N_pts) --> ([N_pts indexes], [cluster 1st index])
@@ -44,6 +52,7 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
         clusters_1stIndex_list.append(clusters_1stIndex)
 
     return indexClusters_list, clusters_1stIndex_list
+
 
 
 
@@ -79,6 +88,9 @@ def __denoise_inCube__(vxl_overlappingMask_list, indexClusters_list, clusters_1s
 
     vxl_denoiseMask_list = []
     for _cube, _select in enumerate(vxl_mask_list):
+        if _select.sum() == 0:
+            vxl_denoiseMask_list.append(_select)
+            continue
         vxl_overlappingMask = vxl_overlappingMask_list[_cube][_select]
         indexClusters = indexClusters_list[_cube] 
         clusters_1stIndex = clusters_1stIndex_list[_cube]
@@ -166,10 +178,10 @@ def __mark_overlappingVxls__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube):
                 continue
             else:   # exist the overlapping cube
                 i_neigh = cube_ijk2index[tuple(ijk_neigh)]
-                vxl_ijk_neigh = vxl_ijk_list[i_neigh]   # even consider the masked vxls to keep the order. 
+                vxl_ijk_neigh = vxl_ijk_list[i_neigh].astype(np.int64)   # even consider the masked vxls to keep the order. 
                 vxl_ijk_newCoords_neigh = vxl_ijk_neigh + (D_cube / 2) * _ijk_shift   # (N_vxls, 3)
 
-                vxl_ijk_current = vxl_ijk_list[i_current]
+                vxl_ijk_current = vxl_ijk_list[i_current].astype(np.int64)
                 # (N_vxls_current, 1, 3), (1, N_vxls_neigh, 3) --> (N_vxls_current, N_vxls_neigh) --> (N_vxls_current, )
                 overlappingMatrix = np.sum(np.abs((vxl_ijk_current[:,None] - vxl_ijk_newCoords_neigh[None,])), axis=-1)
 
@@ -186,16 +198,44 @@ def __mark_overlappingVxls__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube):
 
 
 def denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube):
-    indexClusters_list, clusters_1stIndex_list = __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[])
-    vxl_mask_list = copy.deepcopy(vxl_mask_init_list)
+    """
 
-    vxl_overlappingMask_list = __mark_overlappingVxls__(cube_ijk_np, vxl_ijk_list, vxl_mask_list = vxl_maskThresh_list, D_cube = D_cube)
-    vxl_denoiseMask_list = __denoise_inCube__(vxl_overlappingMask_list, indexClusters_list, clusters_1stIndex_list, vxl_mask_list = occupied_vxl)
-    vxl_maskThresh_list = []
-    for index, vxl_mask in enumerate(vxl_mask_list):
-        occupied_vxl = sparseCubes.filter_voxels(vxl_mask_list = [copy.deepcopy(vxl_mask)],\
-                prediction_list = [prediction_list[index]], prob_thresh = probThresh_list[index])[0]
-        vxl_maskThresh_list.append(occupied_vxl)
+    -------
+    inputs:
+        cube_ijk_np: ijk of cubes
+        vxl_ijk_list: [(N_pts, 3), ...] ijk of point set
+        probThresh_list: 
+        vxl_mask_list: used to filter voxels
+        D_cube: size of cube = (D_cube, )*3
+
+    -------
+    outputs:
+        vxl_overlappingMask_list: mark the overlapping status of ALL the voxels. Should have the same shape with vxl_mask_list.
+
+    -------
+    examples:
+    >>> cube_ijk_np = np.array([[1,6,8], [2,6,8], [2,7,8], [2,5,8]], dtype=np.uint8)
+    >>> vxl_ijk_list = [np.array([[1,0,0], [2,2,2], [3,3,3], [1,0,1], [2,3,3]], dtype=np.uint8), \
+                        np.array([[0,2,3], [0,1,3], [0,0,0], [0,3,3], [3,3,0]], dtype=np.uint8), \
+                        np.array([[0,2,3], [0,1,3], [0,0,0], [0,3,3]], dtype=np.uint8), \
+                        np.array([[0,2,3], [0,1,3], [0,0,0], [0,3,3], [3,3,3]], dtype=np.uint8) ]
+    >>> vxl_mask_list = [np.array([1,0,1,1,1], dtype=np.bool), \
+                         np.array([1,1,0,1,1], dtype=np.bool), \
+                         np.array([0,0,0,0], dtype=np.bool), \
+                         np.array([1,1,1,1,1], dtype=np.bool)]
+    >>> denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube = 4)
+    [array([False, False,  True, False,  True], dtype=bool), array([ True,  True, False,  True, False], dtype=bool), array([False, False, False, False], dtype=bool), array([ True,  True, False,  True, False], dtype=bool)]
+    """
+
+    indexClusters_list, clusters_1stIndex_list = __cluster_inCube__(vxl_ijk_list, vxl_mask_list=vxl_mask_list)
+
+    vxl_overlappingMask_list = __mark_overlappingVxls__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube)
+    vxl_maskDenoise_list = __denoise_inCube__(vxl_overlappingMask_list, indexClusters_list, clusters_1stIndex_list, vxl_mask_list)
+    return vxl_maskDenoise_list
+
+
+
+
 
 
 
