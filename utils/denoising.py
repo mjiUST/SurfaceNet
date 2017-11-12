@@ -37,14 +37,17 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
 
     indexClusters_list, clusters_1stIndex_list = [], []
     for _cube, _select in enumerate(vxl_mask_list):
-        if _select.sum() == 0:
+        N_pts = _select.sum()
+        if N_pts == 0:
             indexClusters_list.append([])
             clusters_1stIndex_list.append([])
             continue
         vxl_ijk = vxl_ijk_list[_cube][_select].astype(np.int64)  # (N_pts, 3)
-        adjacencyMatrix_ijk = np.abs((vxl_ijk[None, :] - vxl_ijk[:, None]))  # (1, N_pts, 3) - (N_pts, 1, 3) --> (N_pts, N_pts, 3)
-        adjacencyMatrix = np.sum(adjacencyMatrix_ijk <= 1, axis=-1) == 3    # large distance --> False --> sum along ijk cannot reach 3.
-        indexClusters, clusters_1stIndex = CVC.clusterFromAdjacency(adjacencyMatrix)   # (N_pts, N_pts) --> ([N_pts indexes], [cluster 1st index])
+        triu_indices = np.triu_indices(n = N_pts, k = 1)   # upper triagnal indices
+        sparseAdjacencyMatrix_ijk = np.abs(vxl_ijk[triu_indices[0]] - vxl_ijk[triu_indices[1]])  # (N_ptPairs, 3) - (N_ptPairs, 3) --> (N_ptPairs, 3)
+        sparseAdjacencyMatrix_triu_indices = np.sum(sparseAdjacencyMatrix_ijk <= 1, axis=-1) == 3    # large distance --> False --> sum along ijk cannot reach 3, (N_ptPairs, 3).
+        sparseAdjacencyMatrix = np.array(triu_indices)[:, sparseAdjacencyMatrix_triu_indices].T
+        indexClusters, clusters_1stIndex = CVC.clusterFromSparseAdjacency(sparseAdjacencyMatrix, N_pts)   # (N_pts, N_pts) --> ([N_pts indexes], [cluster 1st index])
         # make sure indexClusters don't have duplicates.
         if len(indexClusters) != len(set(indexClusters)):
             raise Warning("There should not exist duplicates. Current is {}".format(indexClusters))
@@ -52,8 +55,6 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
         clusters_1stIndex_list.append(clusters_1stIndex)
 
     return indexClusters_list, clusters_1stIndex_list
-
-
 
 
 def __denoise_inCube__(vxl_overlappingMask_list, indexClusters_list, clusters_1stIndex_list, vxl_mask_list):
