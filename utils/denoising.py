@@ -199,6 +199,8 @@ def __mark_overlappingVxls__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube):
 
 def denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube):
     """
+    Remove the floating noise due to the limited receptive field of ConvNet.
+    Clustering the voxels in each cube, delete the non-overlapping ones.
 
     -------
     inputs:
