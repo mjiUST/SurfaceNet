@@ -1,8 +1,5 @@
 import numpy as np
-
-import CVC 
-import sparseCubes
-
+import scipy.ndimage.measurements as measure
 
 
 def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
@@ -35,7 +32,7 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
     ([[0, 2, 1, 3, 4], [0, 2, 1], [], [0, 1, 3, 2, 4]], [[0, 2, 4], [0, 2], [], [0, 3, 4]])
     """
 
-    indexClusters_list, clusters_1stIndex_list = [], []
+    labeled_3Darray_list, N_labels_list = [], []
     for _cube, _select in enumerate(vxl_mask_list):
         N_pts = _select.sum()
         if N_pts == 0:
@@ -43,18 +40,14 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
             clusters_1stIndex_list.append([])
             continue
         vxl_ijk = vxl_ijk_list[_cube][_select].astype(np.int64)  # (N_pts, 3)
-        triu_indices = np.triu_indices(n = N_pts, k = 1)   # upper triagnal indices
-        sparseAdjacencyMatrix_ijk = np.abs(vxl_ijk[triu_indices[0]] - vxl_ijk[triu_indices[1]])  # (N_ptPairs, 3) - (N_ptPairs, 3) --> (N_ptPairs, 3)
-        sparseAdjacencyMatrix_triu_indices = np.sum(sparseAdjacencyMatrix_ijk <= 1, axis=-1) == 3    # large distance --> False --> sum along ijk cannot reach 3, (N_ptPairs, 3).
-        sparseAdjacencyMatrix = np.array(triu_indices)[:, sparseAdjacencyMatrix_triu_indices].T
-        indexClusters, clusters_1stIndex = CVC.clusterFromSparseAdjacency(sparseAdjacencyMatrix, N_pts)   # (N_pts, N_pts) --> ([N_pts indexes], [cluster 1st index])
-        # make sure indexClusters don't have duplicates.
-        if len(indexClusters) != len(set(indexClusters)):
-            raise Warning("There should not exist duplicates. Current is {}".format(indexClusters))
-        indexClusters_list.append(indexClusters)
-        clusters_1stIndex_list.append(clusters_1stIndex)
 
-    return indexClusters_list, clusters_1stIndex_list
+        matrix3D = np.zeros(vxl_ijk.max(axis=0) + 1, dtype=np.bool) # construct dense 3D array
+        matrix3D[vxl_ijk[:,0], vxl_ijk[:,1], vxl_ijk[:,2]] = 1
+        labeled_3Darray, N_labels = measure.label(matrix3D)
+        labeled_3Darray_list.append(labeled_3Darray)
+        N_labels_list.append(N_labels)
+
+    return labeled_3Darray_list, N_labels_list
 
 
 def __denoise_inCube__(vxl_overlappingMask_list, indexClusters_list, clusters_1stIndex_list, vxl_mask_list):
