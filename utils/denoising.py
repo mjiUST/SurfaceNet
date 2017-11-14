@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.ndimage.measurements as measure
 
+dtype_clusterLabel = np.uint32
 
 def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
     """
@@ -28,7 +29,7 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
                          np.array([0,0,0], dtype=np.bool), \
                          np.array([1,1,1,1,1], dtype=np.bool)]
     >>> __cluster_inCube__(vxl_ijk_list, vxl_mask_list)     # the masked index should not appear
-    ([array([2, 0, 3, 2, 3, 1], dtype=int32), array([2, 1, 0, 2], dtype=int32), array([ 0.,  0.,  0.]), array([2, 2, 1, 2, 3], dtype=int32)], [3, 2, 0, 3])
+    ([array([2, 0, 3, 2, 3, 1], dtype=uint32), array([2, 1, 0, 2], dtype=uint32), array([ 0.,  0.,  0.]), array([2, 2, 1, 2, 3], dtype=uint32)], [3, 2, 0, 3])
     """
 
     vxl_labeles_list, N_labels_list = [], []
@@ -45,7 +46,9 @@ def __cluster_inCube__(vxl_ijk_list, vxl_mask_list=[]):
         matrix3D = np.zeros(vxl_ijk_masked.max(axis=0) + 1, dtype=np.bool) # construct dense 3D array
         matrix3D[vxl_ijk_masked[:,0], vxl_ijk_masked[:,1], vxl_ijk_masked[:,2]] = 1
         labeled_3Darray, N_labels = measure.label(matrix3D) # matrix3D.shape
-        vxl_labeles_list.append(labeled_3Darray[vxl_ijk[:,0], vxl_ijk[:,1], vxl_ijk[:,2]])
+        _vxl_labeles = np.zeros(_select.shape, dtype=dtype_clusterLabel)
+        _vxl_labeles[_select] = labeled_3Darray[vxl_ijk_masked[:,0], vxl_ijk_masked[:,1], vxl_ijk_masked[:,2]].astype(dtype_clusterLabel)
+        vxl_labeles_list.append(_vxl_labeles)
         N_labels_list.append(N_labels)
 
     return vxl_labeles_list, N_labels_list
@@ -83,7 +86,7 @@ def __mark_overlappingLabels__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube)
                          np.array([0,0,0,0], dtype=np.bool), \
                          np.array([1,1,1,1,1], dtype=np.bool)]
     >>> __mark_overlappingLabels__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube = 4)
-    ([[2, 3], [1, 2], [], [2]], [array([1, 0, 0, 2, 1, 2, 3], dtype=int32), array([1, 1, 0, 1, 2, 3], dtype=int32), array([ 0.,  0.,  0.,  0.]), array([2, 2, 1, 2, 3], dtype=int32)])
+    ([[2L, 3L], [1L, 2L], [], [2L]], [array([1, 0, 0, 2, 1, 2, 3], dtype=uint32), array([1, 1, 0, 1, 2, 3], dtype=uint32), array([ 0.,  0.,  0.,  0.]), array([2, 2, 1, 2, 3], dtype=uint32)])
     >>> # vxl_overlappingMask_list looks like: [array([False, False, False, False,  True], dtype=bool), array([False,  True, False,  True, False], dtype=bool), array([False, False, False, False], dtype=bool), array([False, False, False,  True, False], dtype=bool)]
     """
 
@@ -132,18 +135,6 @@ def __mark_overlappingLabels__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube)
 
 
 
-# cube_ijk_np = np.array([[1,6,8], [2,6,8], [2,7,8], [2,5,8]], dtype=np.uint8)
-# vxl_ijk_list = [np.array([[1,0,0], [2,2,2], [3,2,3], [3,3,3], [1,0,1], [2,3,3]], dtype=np.uint8), \
-#                 np.array([[0,2,3], [0,1,3], [0,0,0], [0,3,3], [3,3,0]], dtype=np.uint8), \
-#                 np.array([[0,2,3], [0,1,3], [0,0,0], [0,3,3]], dtype=np.uint8), \
-#                 np.array([[0,2,3], [0,1,3], [0,0,0], [0,3,3], [3,3,3]], dtype=np.uint8) ]
-# vxl_mask_list = [np.array([1,0,0,1,1,1], dtype=np.bool), \
-#                  np.array([1,1,0,1,1], dtype=np.bool), \
-#                  np.array([0,0,0,0], dtype=np.bool), \
-#                  np.array([1,1,1,1,1], dtype=np.bool)]
-# __mark_overlappingLabels__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube = 4)
-
-
 
 def denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube):
     """
@@ -177,14 +168,13 @@ def denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube):
     [array([False, False,  True, False,  True], dtype=bool), array([ True,  True, False,  True, False], dtype=bool), array([False, False, False, False], dtype=bool), array([ True,  True, False,  True, False], dtype=bool)]
     """
 
-
+    vxl_maskDenoise_list = []
     overlappingLabels_list, vxl_labeles_list = __mark_overlappingLabels__(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube)
 
-    for _cube, _vxl_labels in enumerate(vxl_maskDenoise_list):
+    for _cube, _vxl_labels in enumerate(vxl_labeles_list):
         _overlappingLabels = overlappingLabels_list[_cube]
-        np.in1d(_vxl_labele, _overlappingLabels)    # 
+        vxl_maskDenoise_list.append(np.in1d(_vxl_labels, _overlappingLabels))    # only keep the vxls with overlapping cluster labels
 
-    vxl_maskDenoise_list = __denoise_inCube__(vxl_overlappingMask_list, indexClusters_list, clusters_1stIndex_list, vxl_mask_list)
     return vxl_maskDenoise_list
 
 
