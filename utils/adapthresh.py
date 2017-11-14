@@ -1,11 +1,12 @@
 import numpy as np
 import copy
-import sparseCubes
 import os
 import sys
 import time
 import itertools
 
+import sparseCubes
+import denoising
 
 def access_partial_Occupancy_ijk(Occ_ijk, shift, D_cube):
     """
@@ -103,7 +104,9 @@ def adapthresh(save_result_fld, N_refine_iter, D_cube, \
     save_result_fld = os.path.join(save_result_fld, "adapThresh_gamma{:.3}_beta{}".format(gamma, beta))
     if not os.path.exists(save_result_fld):
         os.makedirs(save_result_fld)
-    sparseCubes.save_sparseCubes_2ply(vxl_mask_init_list, vxl_ijk_list, rgb_list, param_np, \
+
+    vxl_maskDenoised_init_list = denoising.denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list = vxl_mask_init_list, D_cube = D_cube)
+    sparseCubes.save_sparseCubes_2ply(vxl_maskDenoised_init_list, vxl_ijk_list, rgb_list, param_np, \
             ply_filePath=os.path.join(save_result_fld, 'initialization.ply'), normal_list=None) 
 
     neigh_shifts = np.asarray([[1,0,0],[0,1,0],[0,0,1],[-1,0,0],[0,-1,0],[0,0,-1]]).astype(np.int8)
@@ -164,8 +167,9 @@ def adapthresh(save_result_fld, N_refine_iter, D_cube, \
 
         vxl_mask_list = sparseCubes.filter_voxels(vxl_mask_list=vxl_mask_list,prediction_list=prediction_list, prob_thresh=probThresh_list,\
                 rayPooling_votes_list=None, rayPool_thresh=None)
+        vxl_maskDenoised_list = denoising.denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list, D_cube )
         ply_filePath = os.path.join(save_result_fld, 'iter{}.ply'.format(_iter))
-        sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
+        sparseCubes.save_sparseCubes_2ply(vxl_maskDenoised_list, vxl_ijk_list, rgb_list, \
                 param_np, ply_filePath=ply_filePath, normal_list=None)
         if RGB_visual_ply:
             sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, tmp_rgb_list, \

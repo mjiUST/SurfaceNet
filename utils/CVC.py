@@ -1,9 +1,7 @@
 # CVC: Colored Voxel Cube
-
+import copy
 import numpy as np
 
-
-   
 
 def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, xyz, resol, densityCube, colorize_cube_D, visualization_ON=False):
     """ 
@@ -125,4 +123,7 @@ def preprocess_augmentation(gt_sub, X_sub, mean_rgb, augment_ON = True, crop_ON 
 
 
 
+
+import doctest
+doctest.testmod()
 
