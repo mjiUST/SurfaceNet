@@ -19,6 +19,7 @@ import SurfaceNet
 import earlyRejection
 import viewPairSelection
 import CVC
+import denoising
 
 
 
@@ -41,11 +42,13 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     """
 
     print "start reconstruction ..."  
+
+    cube_D = params.__cube_D
     # from now on, view indexes will be like [0,1,...]
     images_list = image.readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern, viewList = viewList, return_list = True)     
     cameraPOs_np = camera.readCameraPOs_as_np(datasetFolder = datasetFolder, datasetName = params.__datasetName, poseNamePattern = poseNamePattern, model = model, viewList = viewList)  # (N_views, 3, 4) np
     cameraTs_np = camera.cameraPs2Ts(cameraPOs = cameraPOs_np)  # (N_views, 3) np
-    cubes_param_np, cube_D_mm = scene.initializeCubes(resol = resol, cube_D = params.__cube_D, cube_Dcenter = params.__cube_Dcenter, cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)  # (N_cubes,N_params), scalar. the scene is divided into multiple overlapping cubes, each of which has several attributes, such as param_np["xyz"/"ijk"/"resol"]
+    cubes_param_np, cube_D_mm = scene.initializeCubes(resol = resol, cube_D = cube_D, cube_Dcenter = params.__cube_Dcenter, cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)  # (N_cubes,N_params), scalar. the scene is divided into multiple overlapping cubes, each of which has several attributes, such as param_np["xyz"/"ijk"/"resol"]
     img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner(projection_M = cameraPOs_np, cube_xyz_min = cubes_param_np['xyz'], cube_D_mm = cube_D_mm, return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes, 8)
     N_views, N_cubes = img_h_cubesCorner.shape[:2]
     D_embedding = params.__D_imgPatchEmbedding 
@@ -113,7 +116,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
                 selected_viewPairs = viewPairs4Reconstr[_batch[validCubes]],  \
                 xyz = cubes_param_np['xyz'][_batch],  \
                 resol = cubes_param_np['resol'][_batch],  \
-                colorize_cube_D = params.__cube_D,\
+                colorize_cube_D = cube_D,\
                 cameraPOs=cameraPOs_np, \
                 models_img=images_list, \
                 visualization_ON = False)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
@@ -150,7 +153,8 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     vxl_mask_list = sparseCubes.filter_voxels(vxl_mask_list=[],prediction_list=prediction_list, prob_thresh= params.__tau,\
             rayPooling_votes_list=rayPooling_votes_list, rayPool_thresh = params.__gamma * N_viewPairs4inference * 2)    # thinning (ray pooling)
     # TODO: fix thresh thinning (prob_thresh)
-    sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
+    vxl_maskDenoised_list = denoising.denoise_crossCubes(cube_ijk_np, vxl_ijk_list, vxl_mask_list = vxl_mask_list, D_cube = cube_D)
+    sparseCubes.save_sparseCubes_2ply(vxl_maskDenoised_list, vxl_ijk_list, rgb_list, \
             param_np, ply_filePath=ply_filename, normal_list=None)
     print("Saved ply file '{}'. It takes {:.3f}s".format(ply_filename, time.time() - time_ply))
 
