@@ -49,7 +49,7 @@ if whatUWant is "reconstruct_model":
     __gamma = 0.8   # used in the ray pooling procedure
 
     # TODO tune, gpuarray.preallocate=0.95 / -1 
-    __batchSize_similNet_patch2embedding_perGB = 350
+    __batchSize_similNet_patch2embedding_perGB = 100
     __batchSize_similNet_embeddingPair2simil_perGB = 100000
     __batchSize_viewPair_w_perGB = 100000     
 
