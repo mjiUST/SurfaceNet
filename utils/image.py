@@ -87,7 +87,7 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
     return imgs_list if return_list else np.stack(imgs_list)
 
 
-def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, interp_order = 2):
+def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, interp_order = 2, cubeCenter_hw = None):
     """
     crop patches from a specific image. Up/down sample the image according to the img_h/w of the projected region.
     N_pyramid = NO. of the image pyramid layers 
@@ -148,8 +148,11 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
     N_patches = range_h.shape[0]
     patchSize_r = patchSize / 2
     # get patch center in the original image.
-    center_h = np.mean(range_h, axis=1) # (N_patches,)
-    center_w = np.mean(range_w, axis=1)
+    if cubeCenter_hw is None:
+        center_h = np.mean(range_h, axis=1) # (N_patches,)
+        center_w = np.mean(range_w, axis=1)
+    else: 
+        center_h, center_w = cubeCenter_hw
 
     img_h, img_w, img_c = img.shape
     img_dtype = img.dtype

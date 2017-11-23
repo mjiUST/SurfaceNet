@@ -50,6 +50,9 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     cameraTs_np = camera.cameraPs2Ts(cameraPOs = cameraPOs_np)  # (N_views, 3) np
     cubes_param_np, cube_D_mm = scene.initializeCubes(resol = resol, cube_D = cube_D, cube_Dcenter = params.__cube_Dcenter, cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)  # (N_cubes,N_params), scalar. the scene is divided into multiple overlapping cubes, each of which has several attributes, such as param_np["xyz"/"ijk"/"resol"]
     img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner(projection_M = cameraPOs_np, cube_xyz_min = cubes_param_np['xyz'], cube_D_mm = cube_D_mm, return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes, 8)
+    img_h_cubesCenter, img_w_cubesCenter = camera.perspectiveProj(projection_M = cameraPOs_np, \
+            xyz_3D = cubes_param_np['xyz'] + cube_D_mm/2, \
+            return_int_hw = False, return_depth = False)    # img_w/h: (N_Ms, N_pts) 
     N_views, N_cubes = img_h_cubesCorner.shape[:2]
     D_embedding = params.__D_imgPatchEmbedding 
 
@@ -67,7 +70,11 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     viewPairs = utils.k_combination_np(range(N_views), k = 2)     # (N_viewPairs, 2)
     N_viewPairs = viewPairs.shape[0]
     patches_mean_bgr = params.__MEAN_PATCHES_BGR
-    patches_embedding, inScope_cubes_vs_views = earlyRejection.patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, N_cubes, N_views, D_embedding, patchSize = params.__imgPatch_hw_size, batchSize = params.__batchSize_similNet_patch2embedding)    # (N_cubes, N_views, D_embedding), (N_cubes, N_views)
+    patches_embedding, inScope_cubes_vs_views = earlyRejection.patch2embedding( \
+            images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, \
+            N_cubes, N_views, D_embedding, patchSize = params.__imgPatch_hw_size, \
+            batchSize = params.__batchSize_similNet_patch2embedding, \
+            cubeCenter_hw = np.stack([img_h_cubesCenter, img_w_cubesCenter], axis=0))    # (N_cubes, N_views, D_embedding), (N_cubes, N_views)
 
     dissimilarity = earlyRejection.embeddingPairs2simil(embeddings = patches_embedding, 
             embeddingPair2simil_fn = embeddingPair2simil_fn, 
