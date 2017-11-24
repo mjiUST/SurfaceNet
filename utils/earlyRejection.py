@@ -24,7 +24,11 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
 
     # since the images' size may be different, some numpy array operations upon multiple images cannot be used. Just loop through the view image.
     inScope_cubes_vs_views = np.zeros((N_cubes, N_views), dtype=np.bool)    # bool indicator matrix (N_cubes, N_views)
+
+    patch_allBlack = image.preprocess_patches(np.zeros((1, patchSize, patchSize, 3), dtype = np.float32), mean_BGR = patches_mean_bgr)
     patches_embedding = np.zeros((N_cubes, N_views, D_embedding), dtype=np.float32)     # (N_cubes, N_views, D_embedding)
+    # (1, 3, patchSize, patchSize) --> (N_cubes, N_cubes, D_embedding). Use the all black patch's embedding to initialize.
+    patches_embedding[:,:] = patch2embedding_fn(patch_allBlack)[0] # don't use np.repeat (out of memory)
 
     projection_h_range = np.stack([img_h_cubesCorner.min(axis=-1), img_h_cubesCorner.max(axis=-1)], axis=-1)  # (N_views, N_cubes, 8) --> (N_views, N_cubes) --> (N_views, N_cubes, 2)
     projection_w_range = np.stack([img_w_cubesCorner.min(axis=-1), img_w_cubesCorner.max(axis=-1)], axis=-1)
