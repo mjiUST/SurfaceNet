@@ -27,6 +27,7 @@ __input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_
 __output_data_rootFld = __DEBUG_output_data_rootFld if __DEBUG_output_data_rootFld_exists else __output_data_rootFld
 
 debug_BB = False
+__output_data_rootFld += '_Debug_BB' if debug_BB else ''
 
 
 if whatUWant is "reconstruct_model": 
