@@ -87,7 +87,7 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
     return imgs_list if return_list else np.stack(imgs_list)
 
 
-def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, interp_order = 2):
+def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, interp_order = 2, cubeCenter_hw = None):
     """
     crop patches from a specific image. Up/down sample the image according to the img_h/w of the projected region.
     N_pyramid = NO. of the image pyramid layers 
@@ -148,8 +148,11 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
     N_patches = range_h.shape[0]
     patchSize_r = patchSize / 2
     # get patch center in the original image.
-    center_h = np.mean(range_h, axis=1) # (N_patches,)
-    center_w = np.mean(range_w, axis=1)
+    if cubeCenter_hw is None:
+        center_h = np.mean(range_h, axis=1) # (N_patches,)
+        center_w = np.mean(range_w, axis=1)
+    else: 
+        center_h, center_w = cubeCenter_hw
 
     img_h, img_w, img_c = img.shape
     img_dtype = img.dtype
@@ -181,10 +184,16 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
         _patch_h_max = _patch_h_min + patchSize
         _patch_w_max = _patch_w_min + patchSize
         _patchRelativeCoords = np.indices((patchSize, patchSize))    # (2,patchSize,patchSize)
-        _pixel_h = np.clip(_patch_h_min[:,None,None] + _patchRelativeCoords[0:1], a_min=0, a_max=_imgResize_h-1)      # (N_logRatioInt, 1, 1) + (1, patchSize, patchSize) --> (N_logRatioInt, patchSize, patchSize), clip to range [0, _imgResize_h) for indexing
-        _pixel_w = np.clip(_patch_w_min[:,None,None] + _patchRelativeCoords[1:2], a_min=0, a_max=_imgResize_w-1)
+        _pixel_h_int = _patch_h_min[:,None,None] + _patchRelativeCoords[0:1]  # (N_logRatioInt, 1, 1) + (1, patchSize, patchSize)
+        _pixel_h = np.clip(_pixel_h_int, a_min=0, a_max=_imgResize_h-1)      # (N_logRatioInt, patchSize, patchSize), clip to range [0, _imgResize_h) for indexing
+        _pixel_w_int = _patch_w_min[:,None,None] + _patchRelativeCoords[1:2]
+        _pixel_w = np.clip(_pixel_w_int, a_min=0, a_max=_imgResize_w-1)
 
         patches[_select] = _imgResize[_pixel_h, _pixel_w, :]      # (N_patches, patchSize, patchSize, 3/1), indexing all the pixels in multiple patches at one time.  _pixel_h/w much be integer.
+
+        # assign the outborder pixel to black.
+        # if comment this line, the outborder pixel will be assigned to the nearest inborder pixel value
+        # patches[_select][(_pixel_h_int < 0) & (_pixel_h_int >= _imgResize_h) & (_pixel_w_int < 0) & (_pixel_w_int >= _imgResize_w)] = 0
 
     return patches
 

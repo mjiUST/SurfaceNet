@@ -3,7 +3,7 @@ import utils
 import image
 
 
-def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, N_cubes, N_views, D_embedding, patchSize, batchSize):
+def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, N_cubes, N_views, D_embedding, patchSize, batchSize, cubeCenter_hw):
     """
     given the imgs and the cubeCorners' projection, return the patches' embeddings.
 
@@ -24,7 +24,11 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
 
     # since the images' size may be different, some numpy array operations upon multiple images cannot be used. Just loop through the view image.
     inScope_cubes_vs_views = np.zeros((N_cubes, N_views), dtype=np.bool)    # bool indicator matrix (N_cubes, N_views)
+
+    patch_allBlack = image.preprocess_patches(np.zeros((1, patchSize, patchSize, 3), dtype = np.float32), mean_BGR = patches_mean_bgr)
     patches_embedding = np.zeros((N_cubes, N_views, D_embedding), dtype=np.float32)     # (N_cubes, N_views, D_embedding)
+    # (1, 3, patchSize, patchSize) --> (N_cubes, N_cubes, D_embedding). Use the all black patch's embedding to initialize.
+    patches_embedding[:,:] = patch2embedding_fn(patch_allBlack)[0] # don't use np.repeat (out of memory)
 
     projection_h_range = np.stack([img_h_cubesCorner.min(axis=-1), img_h_cubesCorner.max(axis=-1)], axis=-1)  # (N_views, N_cubes, 8) --> (N_views, N_cubes) --> (N_views, N_cubes, 2)
     projection_w_range = np.stack([img_w_cubesCorner.min(axis=-1), img_w_cubesCorner.max(axis=-1)], axis=-1)
@@ -38,7 +42,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
             continue
         else:
             _patches_embedding_inScope = np.zeros((N_cubes_inScope, D_embedding), dtype=np.float32)     # (N_cubes_inScope, N_views, D_embedding)
-            _patches = image.cropImgPatches(img = _image, range_h = projection_h_range[_view][_inScope], range_w = projection_w_range[_view][_inScope], patchSize = patchSize, pyramidRate = 1, interp_order = 2)  # (N_cubes_inScope, patchSize, patchSize, 3/1)
+            _patches = image.cropImgPatches(img = _image, range_h = projection_h_range[_view][_inScope], range_w = projection_w_range[_view][_inScope], patchSize = patchSize, pyramidRate = 1, interp_order = 2, cubeCenter_hw = cubeCenter_hw[:, _view, _inScope])  # (N_cubes_inScope, patchSize, patchSize, 3/1)
             _patches_preprocessed = image.preprocess_patches(_patches.astype(np.float32), mean_BGR = patches_mean_bgr)
             for _batch in utils.yield_batch_npBool(N_all = N_cubes_inScope, batch_size = batchSize):      # note that bool selector: _batch.shape == (N_cubes,)
                 _patches_embedding_inScope[_batch] = patch2embedding_fn(_patches_preprocessed[_batch])     # (N_batch, 3/1, patchSize, patchSize) --> (N_batch, D_embedding). similarityNet: patch --> embedding

@@ -9,3 +9,4 @@
 .vscode
 3.2D_2_3D-train/1.pcl-save2file_OR_visualize/build
 _*/
+.nfs*

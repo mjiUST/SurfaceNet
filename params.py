@@ -27,6 +27,7 @@ __input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_
 __output_data_rootFld = __DEBUG_output_data_rootFld if __DEBUG_output_data_rootFld_exists else __output_data_rootFld
 
 debug_BB = False
+__output_data_rootFld += '_Debug_BB' if debug_BB else ''
 
 
 if whatUWant is "reconstruct_model": 
@@ -49,7 +50,7 @@ if whatUWant is "reconstruct_model":
     __gamma = 0.8   # used in the ray pooling procedure
 
     # TODO tune, gpuarray.preallocate=0.95 / -1 
-    __batchSize_similNet_patch2embedding_perGB = 350
+    __batchSize_similNet_patch2embedding_perGB = 100
     __batchSize_similNet_embeddingPair2simil_perGB = 100000
     __batchSize_viewPair_w_perGB = 100000     
 
@@ -147,9 +148,8 @@ def load_modelSpecific_params(datasetName, model):
         BBNamePattern = "SampleSet/MVS Data/ObsMask/ObsMask{}_10.mat".format(model)
         BB_filePath = os.path.join(datasetFolder, BBNamePattern)
         BB_matlab_var = scipy.io.loadmat(BB_filePath)   # matlab variable
-        reconstr_sceneRange = [(0, 60), (-150, -100), (580, 630)]
-        BB = reconstr_sceneRange if debug_BB else BB_matlab_var['BB']   # np(2,3)
-        BB = BB.T   # (3,2)
+        reconstr_sceneRange = np.asarray([(-40, 40), (80, 160), (630, 680)])
+        BB = reconstr_sceneRange if debug_BB else BB_matlab_var['BB'].T   # np(3,2)
         viewList = range(1,50)  # range(1,50)
 
     if datasetName is "Middlebury":
