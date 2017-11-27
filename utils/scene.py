@@ -40,16 +40,18 @@ def initializeCubes(resol, cube_D, cube_Dcenter, cube_overlapping_ratio, BB):
     cube_D_mm = resol * cube_D   # D size of each cube along each axis, 
     cube_Center_D_mm = resol * cube_Dcenter   # D size of each cube's center that is finally remained 
     cube_stride_mm = cube_Center_D_mm * cube_overlapping_ratio # the distance between adjacent cubes, 
+    safeMargin = cube_D_mm/2
+
     print('xyz bounding box of the reconstructed scene: {}, {}, {}'.format(*BB))
     N_along_axis = lambda _min, _max, _resol: int(math.ceil((_max - _min) / _resol))
-    N_along_xyz = [N_along_axis( (BB[_axis][0] - cube_D_mm), (BB[_axis][1] + cube_D_mm), cube_stride_mm) for _axis in range(3)]   # how many cubes along each axis
+    N_along_xyz = [N_along_axis( (BB[_axis][0] - safeMargin), (BB[_axis][1] + safeMargin), cube_stride_mm) for _axis in range(3)]   # how many cubes along each axis
     # store the ijk indices of each cube, in order to localize the cube
     cubes_ijk = np.indices(tuple(N_along_xyz))
     N_cubes = cubes_ijk.size / 3   # how many cubes
 
     cubes_param_np = np.empty((N_cubes,), dtype=[('xyz', np.float32, (3,)), ('ijk', np.uint32, (3,)), ('resol', np.float32)])    # attributes for each CVC (colored voxel cube)
     cubes_param_np['ijk'] = cubes_ijk.reshape([3,-1]).T  # i/j/k grid index
-    cubes_xyz_min = cubes_param_np['ijk'] * cube_stride_mm + (BB[:,0][None,:] - cube_D_mm)
+    cubes_xyz_min = cubes_param_np['ijk'] * cube_stride_mm + (BB[:,0][None,:] - safeMargin)
     cubes_param_np['xyz'] = cubes_xyz_min    # x/y/z coordinates (mm)
     cubes_param_np['resol'] = resol
 
