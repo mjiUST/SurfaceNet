@@ -84,7 +84,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
             batchSize = params.__batchSize_similNet_embeddingPair2simil)   # (N_cubes, N_viewPairs), TODO: need to set the dissimil value of the viewPairs with at least one invalid_view to 0.
     validCubes = earlyRejection.selectFromSimilarity(dissimilarityProb = dissimilarity, N_viewPairs4inference = N_viewPairs4inference)    # (N_cubes,) np.bool
     N_validCubes = validCubes.sum()
-    print("Early rejection step reduced the # of cubes from {} to {}.".format(N_cubes, N_validCubes))
+    print("\nEarly rejection step reduced the # of cubes from {} to {}.".format(N_cubes, N_validCubes))
 
     ####################
     # viewPair selection

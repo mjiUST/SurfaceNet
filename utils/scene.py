@@ -40,7 +40,7 @@ def initializeCubes(resol, cube_D, cube_Dcenter, cube_overlapping_ratio, BB):
     cube_D_mm = resol * cube_D   # D size of each cube along each axis, 
     cube_Center_D_mm = resol * cube_Dcenter   # D size of each cube's center that is finally remained 
     cube_stride_mm = cube_Center_D_mm * cube_overlapping_ratio # the distance between adjacent cubes, 
-    safeMargin = cube_D_mm/2
+    safeMargin = (cube_D_mm - cube_Center_D_mm)/2
 
     print('xyz bounding box of the reconstructed scene: {}, {}, {}'.format(*BB))
     N_along_axis = lambda _min, _max, _resol: int(math.ceil((_max - _min) / _resol))
