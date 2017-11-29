@@ -256,5 +256,9 @@ def k_combination_np(iterable, k = 2):
     return np.asarray(combinations) 
 
 
+# randomly sample vector between 2 multiDimentional vectors
+sample_randomVector = lambda vmin, vmax: np.array([np.random.uniform(vmin[i], vmax[i]) for i in range(vmin.size)], dtype=vmin.dtype)
+
+
 import doctest
 doctest.testmod()
