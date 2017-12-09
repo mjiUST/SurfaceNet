@@ -10,6 +10,8 @@ def __extract_vxls_inCube__(kdTree, cubeCenter, cube_D, resolution, normalizedDe
     """
     consider the hypercube around cubeCenter (2D/3D/nD) with radius = cube_D * resolution / 2
 
+    TODO: to support multiple cubeCenters queries
+
     -----------
     inputs:
         kdTree, 
@@ -72,7 +74,7 @@ def __extract_vxls_inCube__(kdTree, cubeCenter, cube_D, resolution, normalizedDe
 
 def sample_pts_from_kdTree(kdTree, N_pts, distance_min, distance_max):
     """
-    randomly sample pts from kdTree with distance_min to the nearest pts in the kdTree
+    randomly sample (on/off-surface) pts with distance > distance_min to the nearest points formed in the kdTree
     If the pts are treated as the cube's center, distance_min = cube_D_mm / 2
 
     -----------
@@ -126,15 +128,18 @@ def sample_pts_from_kdTree(kdTree, N_pts, distance_min, distance_max):
     return pts
 
 
-def generate_surface_inCube_gt(inputFile, outputFile, N_pts_onSurface, N_pts_offSurface, \
-        cube_D, resolutionList, inputDataType = 'pcd', recordDensity = True):
+def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurface, \
+        cube_D, cube_resolutionList, inputDataType = 'pcd', recordDensity = True):
     """
-    read a 3D model, record the surface information of the sampled on/off surface cubes
+    read a 3D model, record the surface pts information in the on/off-surface cubes
 
     --------
     inputs:
         inputFile:
-        outputFile: write line by line
+        outputFile: 
+        N_pts_on/offSurface: how many on/off-surface cubes to be sampled
+        cube_D: cube.shape = (cube_D, )*3, larger than the cube_D_4training because of data augmentation
+        cube_resolutionList: sample multi-scale cubes with different resolutions
         inputDataType: 'pcd' / 'mesh'
 
     --------
@@ -142,20 +147,68 @@ def generate_surface_inCube_gt(inputFile, outputFile, N_pts_onSurface, N_pts_off
         1
     """
 
+    outputStream = ""
     model3D = PlyData.read(inputFile)
     if inputDataType is 'pcd':
         pcd = model3D
         pts_xyz = np.array([pcd['vertex'][_coord] for _coord in ['x', 'y', 'z']]).T     # (N_pts, 3)
         kdTree = cKDTree(pts_xyz)
     else:
-        mesh = model3D
+        # mesh = model3D
+        # TODO
         print("Need to be done.")
-    
-    for _resol in resolutionList:
+
+    for _resol in cube_resolutionList:
         cube_D_mm = cube_D * _resol
-        pts_onSurface = sample_pts_from_kdTree(kdTree, N_pts_onSurface, distance_min = 0, distance_max = 0)
-        for _cubeCenter in pts_onSurface: 
-            fe
+
+
+        ############
+        # onSurface
+        ############
+        pts_onSurface = sample_pts_from_kdTree(kdTree, N_pts_onSurface, distance_min = 0, distance_max = 0) # (N_pts_onSurface, 3)
+        kdTree.query_ball_point(pts_onSurface, r = )
+        for _cubeCenter in pts_onSurface:
+            _cube_min = _cubeCenter - cube_D_mm / 2
+            outputStream += "{} {} {} {},".format(_cube_min[0], _cube_min[1], _cube_min[2], cube_D, _resol)     # save xyz of cube_min
+            vxls_inCube, density = __extract_vxls_inCube__(kdTree, _cubeCenter, cube_D, _resol, normalizedDensity = True) # (N_vxls, 3), (N_vxls, )
+            for _vxl, _density in enumerate(density):
+                # save xyz of vxls
+                outputStream += "{} {} {} {},".format(vxls_inCube[_vxl, 0], vxls_inCube[_vxl, 1], vxls_inCube[_vxl, 2], _density)
+        # outputStream += ";"   # can add other information, say visibility
+        outputStream += "\n"
+
+
+        ############
+        # offSurface
+        ############
+        pts_offSurface = sample_pts_from_kdTree(kdTree, N_pts_offSurface, distance_min = cube_D_mm, distance_max = cube_D_mm * 10) # (N_pts_offSurface, 3)
+        for _cubeCenter in pts_offSurface:
+            outputStream += "{} {} {} {},".format(_cubeCenter[0], _cubeCenter[1], _cubeCenter[2], _resol)
+        outputStream += "\n"
+
+    utils.mkdirs_ifNotExist(os.path.dirname(outputFile))
+    with open(outputFile, 'w') as f:
+        f.write(outputStream)
+    return 1
+
+
+def read_saved_surfacePts(inputFile):
+    """
+    read saved on/off-surface pts
+    Return 
+    """
+
+    with open(inputFile, 'r') as f:
+        lines = f.readLines()
+
+    for _line in lines:
+        pts = _line.split('\n')[0].split(',')
+        cube_min_x, cube_min_y, cube_min_z, cube_D, resolution = pts[0].split(' ')
+        if len(pts) == 1:   # off surface cube
+            continue
+        for _pt in pts[1:]
+            x, y, z, density = _pt[0].split(' ')
+        
 
 """
 # read ply

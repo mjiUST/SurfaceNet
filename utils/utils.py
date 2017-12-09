@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import os
 import itertools
          
 ## only defines some operations that could be used from multiple files
@@ -258,6 +259,11 @@ def k_combination_np(iterable, k = 2):
 
 # randomly sample vector between 2 multiDimentional vectors
 sample_randomVector = lambda vmin, vmax: np.array([np.random.uniform(vmin[i], vmax[i]) for i in range(vmin.size)], dtype=vmin.dtype)
+
+
+def mkdirs_ifNotExist(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 
 import doctest
