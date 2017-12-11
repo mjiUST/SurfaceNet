@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from scipy.spatial import cKDTree
 from plyfile import PlyData, PlyElement
@@ -6,7 +7,7 @@ import utils
 
 np.random.seed(201711)
 
-def __extract_vxls_inCube__(kdTree, cubeCenter, cube_D, resolution, normalizedDensity = True):
+def __extract_vxls_ijk__(kdTree, cubeCenter, cube_D, resolution, normalizedDensity = True):
     """
     consider the hypercube around cubeCenter (2D/3D/nD) with radius = cube_D * resolution / 2
 
@@ -22,7 +23,7 @@ def __extract_vxls_inCube__(kdTree, cubeCenter, cube_D, resolution, normalizedDe
 
     -----------
     outputs:
-        vxls_inCube: (N_vxls, 2/3/n)
+        vxls_ijk: (N_vxls, 2/3/n)
         density: NO. of pts in each vxl. normalizedDensity normalize to [0, 1] range.
 
     -----------
@@ -30,22 +31,22 @@ def __extract_vxls_inCube__(kdTree, cubeCenter, cube_D, resolution, normalizedDe
     >>> xy = np.mgrid[0:3, 0:5].reshape((2,-1))
     >>> xy = np.c_[xy, np.array([[5,7], [8,8]]).T].T    # (N_pts, 3)
     >>> kdTree = cKDTree(xy)
-    >>> __extract_vxls_inCube__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 3, resolution = 2, normalizedDensity = False)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 3, resolution = 2, normalizedDensity = False)
     (array([[ 0.,  0.],
             [ 0.,  1.],
             [ 1.,  0.],
             [ 1.,  1.]]), array([2, 2, 4, 4]))
-    >>> __extract_vxls_inCube__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, normalizedDensity = True)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, normalizedDensity = True)
     (array([[ 0.,  0.],
             [ 0.,  1.],
             [ 1.,  0.],
             [ 1.,  1.]]), array([ 1.  ,  0.5 ,  0.5 ,  0.25]))
-    >>> _, NO_pts_inVxl = __extract_vxls_inCube__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, normalizedDensity = False)
+    >>> _, NO_pts_inVxl = __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, normalizedDensity = False)
     >>> NO_pts_inVxl
     array([4, 2, 2, 1])
-    >>> __extract_vxls_inCube__(kdTree, cubeCenter = np.array([5, 0]), cube_D = 2, resolution = 2, normalizedDensity = True)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([5, 0]), cube_D = 2, resolution = 2, normalizedDensity = True)
     (array([], shape=(0, 2), dtype=float32), array([], dtype=float32))
-    >>> __extract_vxls_inCube__(kdTree, cubeCenter = np.array([50, 50]), cube_D = 2, resolution = 2, normalizedDensity = True)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([50, 50]), cube_D = 2, resolution = 2, normalizedDensity = True)
     (array([], shape=(0, 2), dtype=float32), array([], dtype=float32))
     """
 
@@ -56,19 +57,19 @@ def __extract_vxls_inCube__(kdTree, cubeCenter, cube_D, resolution, normalizedDe
     vxls_inSphere -= (cubeCenter - cube_D_mm/2)
     coords = np.floor(vxls_inSphere / resolution)  # integer
     inCube = np.sum((coords < cube_D) & (coords >= 0), axis=-1) == ndim  # (N, 3) --> (N,)
-    vxls_inCube_redundant = coords[inCube]
-    if vxls_inCube_redundant.shape[0] is 0:
+    vxls_ijk_redundant = coords[inCube]
+    if vxls_ijk_redundant.shape[0] is 0:
         return np.zeros((0, ndim), dtype=np.float32), np.zeros((0, ), dtype=np.float32)
-    vxls_inCube_redundant_1D = vxls_inCube_redundant.view(dtype = vxls_inCube_redundant.dtype.descr * ndim)
-    _, indices, counts = np.unique(vxls_inCube_redundant_1D, return_index=True, return_counts=True)
-    vxls_inCube_unique = vxls_inCube_redundant[indices]
+    vxls_ijk_redundant_1D = vxls_ijk_redundant.view(dtype = vxls_ijk_redundant.dtype.descr * ndim)
+    _, indices, counts = np.unique(vxls_ijk_redundant_1D, return_index=True, return_counts=True)
+    vxls_ijk_unique = vxls_ijk_redundant[indices]
 
     if normalizedDensity:
         density = counts / float(counts.max())
     else:
         density = counts
 
-    return vxls_inCube_unique, density
+    return vxls_ijk_unique, density
 
 
 
@@ -129,25 +130,29 @@ def sample_pts_from_kdTree(kdTree, N_pts, distance_min, distance_max):
 
 
 def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurface, \
-        cube_D, cube_resolutionList, inputDataType = 'pcd', recordDensity = True):
+        cube_D, cube_resolutionList, inputDataType = 'pcd'):
     """
-    read a 3D model, record the surface pts information in the on/off-surface cubes
+    read a 3D model, record the surface pts information in the on/off-surface cubes, save to lists (like util/sparseCubes.py)
 
     --------
     inputs:
-        inputFile:
-        outputFile: 
+        inputFile: 'xx.ply' file
+        outputFile: 'xx.npz' file
         N_pts_on/offSurface: how many on/off-surface cubes to be sampled
         cube_D: cube.shape = (cube_D, )*3, larger than the cube_D_4training because of data augmentation
         cube_resolutionList: sample multi-scale cubes with different resolutions
         inputDataType: 'pcd' / 'mesh'
 
     --------
-    outputs:
-        1
+    outputs: (wite to file)
+        cube_param, (N_cubes, ) 'min_xyz' / 'cube_D' / 'resolution'
+        vxl_ijk_list, N_cubes elements: each of which is numpy array (N_vxls, 3) uint32
+        density_list, N_cubes elements: each of which is numpy array (N_vxls, ) float32
+
     """
 
     outputStream = ""
+    cube_param_list, vxl_ijk_list, density_list = [], [], []
     model3D = PlyData.read(inputFile)
     if inputDataType is 'pcd':
         pcd = model3D
@@ -166,16 +171,13 @@ def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurfa
         # onSurface
         ############
         pts_onSurface = sample_pts_from_kdTree(kdTree, N_pts_onSurface, distance_min = 0, distance_max = 0) # (N_pts_onSurface, 3)
-        kdTree.query_ball_point(pts_onSurface, r = )
         for _cubeCenter in pts_onSurface:
             _cube_min = _cubeCenter - cube_D_mm / 2
-            outputStream += "{} {} {} {},".format(_cube_min[0], _cube_min[1], _cube_min[2], cube_D, _resol)     # save xyz of cube_min
-            vxls_inCube, density = __extract_vxls_inCube__(kdTree, _cubeCenter, cube_D, _resol, normalizedDensity = True) # (N_vxls, 3), (N_vxls, )
-            for _vxl, _density in enumerate(density):
-                # save xyz of vxls
-                outputStream += "{} {} {} {},".format(vxls_inCube[_vxl, 0], vxls_inCube[_vxl, 1], vxls_inCube[_vxl, 2], _density)
-        # outputStream += ";"   # can add other information, say visibility
-        outputStream += "\n"
+            vxls_ijk, density = __extract_vxls_ijk__(kdTree, _cubeCenter, cube_D, _resol, normalizedDensity = True) # (N_vxls, 3), (N_vxls, )
+            _cube_param = np.array([(_cube_min, _resol, cube_D)], dtype = [('min_xyz', np.float32, (3, )), ('resolution', np.float32), ('cube_D', np.uint32)])
+            cube_param_list.append(_cube_param)
+            vxl_ijk_list.append(vxls_ijk)
+            density_list.append(density)
 
 
         ############
@@ -183,72 +185,35 @@ def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurfa
         ############
         pts_offSurface = sample_pts_from_kdTree(kdTree, N_pts_offSurface, distance_min = cube_D_mm, distance_max = cube_D_mm * 10) # (N_pts_offSurface, 3)
         for _cubeCenter in pts_offSurface:
-            outputStream += "{} {} {} {},".format(_cubeCenter[0], _cubeCenter[1], _cubeCenter[2], _resol)
-        outputStream += "\n"
+            _cube_min = _cubeCenter - cube_D_mm / 2
+            _cube_param = np.array([(_cube_min, _resol, cube_D)], dtype = [('min_xyz', np.float32, (3, )), ('resolution', np.float32), ('cube_D', np.uint32)])
+            cube_param_list.append(_cube_param)
+            vxl_ijk_list.append([])
+            density_list.append([])
+
+    cube_param = np.concatenate(cube_param_list, axis=0)
 
     utils.mkdirs_ifNotExist(os.path.dirname(outputFile))
-    with open(outputFile, 'w') as f:
-        f.write(outputStream)
-    return 1
+    with open(outputFile, 'wb') as f:
+        np.savez_compressed(f, cube_param = cube_param, vxl_ijk_list = vxl_ijk_list, density_list = density_list)
+    print("Saved surface pts to file: {}".format(outputFile))
+
+    return cube_param, vxl_ijk_list, density_list
 
 
 def read_saved_surfacePts(inputFile):
     """
     read saved on/off-surface pts
-    Return 
+    Return cube_param, vxl_ijk_list, density_list
     """
 
     with open(inputFile, 'r') as f:
-        lines = f.readLines()
-
-    for _line in lines:
-        pts = _line.split('\n')[0].split(',')
-        cube_min_x, cube_min_y, cube_min_z, cube_D, resolution = pts[0].split(' ')
-        if len(pts) == 1:   # off surface cube
-            continue
-        for _pt in pts[1:]
-            x, y, z, density = _pt[0].split(' ')
-        
-
-"""
-# read ply
-# constants
-    # NO of iterations & offSurface cubes
-    # (50,)*3, 0.4
-# cameraP/T, img_hw
-kdtree
-for iteration:
-    rand pt index, cube_min = pt - cube_D/2
-    print to file "{} {} {} {},".format(xyz_min, resol)
-    for x,y,z in (50,)* cube, use kdtree.query_ball_point
-        N_pts_vxl = how many pts are in the voxel
-        print to file "{} {} {} {},".format(x,y,z,N_pts_vxl)
-    print to file ";"
-    for views:  ???
-        print to file inScope & visibility
-    print to file "\n"
-
-thresh_offSurf_min/max
-for N_offSurf
-    generate offSurf cube_min, kdtree could help
-    print to file "{} {} {} {},".format(xyz_min, resol)
-    for views:  ???
-        print to file inScope & visibility
-    print to file "\n"
+        npz = np.load(f)
+        cube_param, vxl_ijk_list, density_list = npz['cube_param'], npz['vxl_ijk_list'], npz['density_list']
+    print("Loaded surface pts from file: {}".format(inputFile))
+    return cube_param, vxl_ijk_list, density_list
 
 
-visualization:
-    show sphere / cube mesh around the on/off_surface pts in the input ply file and save.
-
-
-# reconstruct KDTree
-    # this octree can also be used to detect occlusion (coarse2fine, view occlusion detection in the upper level).
-    # generate similarityNet training 3D pts
-    # OctNet is used to find the distance to the nearest point of the model.
-# generate 3D surface gt (prob,normal_xyz), with shift, rotation augmentation.
-# generate off surface f
-# if mesh data, generate TSDF. TODO: how to generate the TSDF
-"""
 
 
 
