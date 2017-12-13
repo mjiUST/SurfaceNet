@@ -7,7 +7,7 @@ import utils
 
 np.random.seed(201711)
 
-def __extract_vxls_ijk__(kdTree, cubeCenter, cube_D, resolution, normalizedDensity = True):
+def __extract_vxls_ijk__(kdTree, cubeCenter, cube_D, resolution, density_dtype = 'uint'):
     """
     consider the hypercube around cubeCenter (2D/3D/nD) with radius = cube_D * resolution / 2
 
@@ -19,34 +19,37 @@ def __extract_vxls_ijk__(kdTree, cubeCenter, cube_D, resolution, normalizedDensi
         cubeCenter, 
         cube_D, 
         resolution, 
-        normalizedDensity: True: float values with max density = 1 / 0; False: bool value
+        density_dtype: determine the returned value of density
+            'float': float values with max density = 1 / 0; 
+            'bool': whether there are more than 1 point in the voxel
+            'uint': only return the NO. of pts in the voxel
 
     -----------
     outputs:
         vxls_ijk: (N_vxls, 2/3/n)
-        density: NO. of pts in each vxl. normalizedDensity normalize to [0, 1] range.
+        density
 
     -----------
     examples:
     >>> xy = np.mgrid[0:3, 0:5].reshape((2,-1))
     >>> xy = np.c_[xy, np.array([[5,7], [8,8]]).T].T    # (N_pts, 3)
     >>> kdTree = cKDTree(xy)
-    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 3, resolution = 2, normalizedDensity = False)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 3, resolution = 2, density_dtype = 'uint')
     (array([[ 0.,  0.],
             [ 0.,  1.],
             [ 1.,  0.],
             [ 1.,  1.]]), array([2, 2, 4, 4]))
-    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, normalizedDensity = True)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, density_dtype = 'float')
     (array([[ 0.,  0.],
             [ 0.,  1.],
             [ 1.,  0.],
             [ 1.,  1.]]), array([ 1.  ,  0.5 ,  0.5 ,  0.25]))
-    >>> _, NO_pts_inVxl = __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, normalizedDensity = False)
+    >>> _, NO_pts_inVxl = __extract_vxls_ijk__(kdTree, cubeCenter = np.array([1.5, 3.5]), cube_D = 2, resolution = 2, density_dtype = 'uint')
     >>> NO_pts_inVxl
     array([4, 2, 2, 1])
-    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([5, 0]), cube_D = 2, resolution = 2, normalizedDensity = True)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([5, 0]), cube_D = 2, resolution = 2, density_dtype = 'float')
     (array([], shape=(0, 2), dtype=float32), array([], dtype=float32))
-    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([50, 50]), cube_D = 2, resolution = 2, normalizedDensity = True)
+    >>> __extract_vxls_ijk__(kdTree, cubeCenter = np.array([50, 50]), cube_D = 2, resolution = 2, density_dtype = 'float')
     (array([], shape=(0, 2), dtype=float32), array([], dtype=float32))
     """
 
@@ -64,10 +67,12 @@ def __extract_vxls_ijk__(kdTree, cubeCenter, cube_D, resolution, normalizedDensi
     _, indices, counts = np.unique(vxls_ijk_redundant_1D, return_index=True, return_counts=True)
     vxls_ijk_unique = vxls_ijk_redundant[indices]
 
-    if normalizedDensity:
+    if density_dtype is 'float': 
         density = counts / float(counts.max())
-    else:
+    elif density_dtype is 'uint':
         density = counts
+    elif density_dtype is 'bool':
+        density = (counts > 1)
 
     return vxls_ijk_unique, density
 
@@ -130,7 +135,7 @@ def sample_pts_from_kdTree(kdTree, N_pts, distance_min, distance_max):
 
 
 def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurface, \
-        cube_D, cube_resolutionList, inputDataType = 'pcd'):
+        cube_D, cube_resolutionList, inputDataType = 'pcd', density_dtype = 'float'):
     """
     read a 3D model, record the surface pts information in the on/off-surface cubes, save to lists (like util/sparseCubes.py)
 
@@ -173,7 +178,7 @@ def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurfa
         pts_onSurface = sample_pts_from_kdTree(kdTree, N_pts_onSurface, distance_min = 0, distance_max = 0) # (N_pts_onSurface, 3)
         for _cubeCenter in pts_onSurface:
             _cube_min = _cubeCenter - cube_D_mm / 2
-            vxls_ijk, density = __extract_vxls_ijk__(kdTree, _cubeCenter, cube_D, _resol, normalizedDensity = True) # (N_vxls, 3), (N_vxls, )
+            vxls_ijk, density = __extract_vxls_ijk__(kdTree, _cubeCenter, cube_D, _resol, density_dtype = density_dtype) # (N_vxls, 3), (N_vxls, )
             _cube_param = np.array([(_cube_min, _resol, cube_D)], dtype = [('min_xyz', np.float32, (3, )), ('resolution', np.float32), ('cube_D', np.uint32)])
             cube_param_list.append(_cube_param)
             vxl_ijk_list.append(vxls_ijk)

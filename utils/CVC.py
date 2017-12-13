@@ -3,13 +3,13 @@ import copy
 import numpy as np
 
 
-def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, xyz, resol, densityCube, colorize_cube_D, visualization_ON=False):
+def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, min_xyz, resol, densityCube, colorize_cube_D):
     """ 
     generate colored cubes of a perticular densityCube  
     inputs: 
     output: [views_N, 3, colorize_cube_D, colorize_cube_D, colorize_cube_D]. 3 is for RGB
     """
-    min_x,min_y,min_z = xyz
+    min_x,min_y,min_z = min_xyz
     indx_xyz = range(0,colorize_cube_D)
     ##meshgrid: indexing : {'xy', 'ij'}, optional     ##Cartesian ('xy', default) or matrix ('ij') indexing of output.    
     indx_x,indx_y,indx_z = np.meshgrid(indx_xyz,indx_xyz,indx_xyz,indexing='ij')  
@@ -46,19 +46,15 @@ def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, xyz, resol, density
         pts_RGB[inScope_pts_indx] = img[pts_h[inScope_pts_indx],pts_w[inScope_pts_indx]]
         colored_cubes[_n] = pts_RGB.T.reshape((3,colorize_cube_D,colorize_cube_D,colorize_cube_D))
         
-    if visualization_ON:    
-        visualize_N_densities_pcl([densityCube]+[colored_cubes[n] for n in range(0,len(5))])
-        
-
     return colored_cubes
 
 
-def gen_coloredCubes(selected_viewPairs, xyz, resol, cameraPOs, models_img, colorize_cube_D, visualization_ON = False, \
+def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, models_img, colorize_cube_D, \
             occupiedCubes_01=None):     
     """
     inputs: 
     selected_viewPairs: (N_cubes, N_select_viewPairs, 2)
-    xyz, resol: parameters for each occupiedCubes (N,params)
+    min_xyz, resol: parameters for each occupiedCubes (N,params)
     occupiedCubes_01: multiple occupiedCubes (N,)+(colorize_cube_D,)*3
     return:
     coloredCubes = (N*N_select_viewPairs,3*2)+(colorize_cube_D,)*3 
@@ -69,21 +65,15 @@ def gen_coloredCubes(selected_viewPairs, xyz, resol, cameraPOs, models_img, colo
          
 
     for _n_cube in range(0, N_cubes): ## each cube
-        if visualization_ON:
-            if occupiedCubes_01 is None:
-                print 'error: [func]gen_coloredCubes, occupiedCubes_01 should not be None when visualization_ON==True'
-            occupiedCube_01 = occupiedCubes_01[_n_cube]
-        else:
-            occupiedCube_01 = None
+        occupiedCube_01 = None
         ##randViewIndx = random.sample(range(1,cameraPOs.shape[0]),N_randViews)
-            
 
         #(N_cubes, N_select_viewPairs, 2) ==> (N_select_viewPairs*2,). 
         selected_views = selected_viewPairs[_n_cube].flatten() 
         # because selected_views could include duplicated views, this case is not the best way. But if the N_select_viewPairs is small, it doesn't matter too much
         coloredCube = __colorize_cube__(view_set = selected_views, \
-                cameraPOs_np = cameraPOs, model_imgs_np = models_img, xyz = xyz[_n_cube], resol = resol[_n_cube], \
-                visualization_ON=visualization_ON, colorize_cube_D=colorize_cube_D, densityCube = occupiedCube_01)
+                cameraPOs_np = cameraPOs, model_imgs_np = models_img, min_xyz = min_xyz[_n_cube], resol = resol[_n_cube], \
+                colorize_cube_D=colorize_cube_D, densityCube = occupiedCube_01)
 
 
         # [a,b,c] ==> [a,b,a,c,b,c]
@@ -91,7 +81,7 @@ def gen_coloredCubes(selected_viewPairs, xyz, resol, cameraPOs, models_img, colo
         ##for _pairIndx in itertools.combinations(range(0,N_randViews),2):
             ##all_pairIndx += _pairIndx
         ##all_pairIndx = list(all_pairIndx)
-        
+
         # # [a,b,c,d,e,f,g,h,i,j] ==> [a,b,g,c,f,e]
         # all_pairIndx = []
         # for _pairIndx in itertools.combinations(range(0,N_randViews),2):

@@ -101,8 +101,17 @@ if whatUWant is "reconstruct_model":
 
 
 elif whatUWant is "train_xxx":
-    pass
 
+    __modelList_train = []
+    __modelList_val = []     # validation
+    __layer_2_load_model = ["output_volumeNet"] # ["output_volumeNet_reshape","output_softmaxWeights"]#"output_volumeNet" ##output_fusionNet/fuse_op_reshape
+    __lightConditions = ['{}_r5000' for _ in range(7)] + ['max']
+    __datasetFolder = os.path.join(__input_data_rootFld, 'DTU_MVS')
+    imgNamePattern = lambda _model, _view, _light: "Rectified/scan{}/rect_#_{}.png".format(_model, _light)    # replace # to {:03} 
+    __modelFile_pattern = "Points/stl/stl#_total.ply"
+    __npzFile_pattern = "surfacePts/DTU/model#.npz" # TODO:
+    __soft_label = False
+    __chunk_len_train = 6
 
 ###########################
 #   params rarely change

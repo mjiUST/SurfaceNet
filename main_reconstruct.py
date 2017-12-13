@@ -114,7 +114,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
         # TODO: in the test process, the generated coloredCubes could be the exact size we want. Don't need to crop in the preprocess method. 
         _CVCs1_sub = CVC.gen_coloredCubes( \
                 selected_viewPairs = viewPairs4Reconstr[_batch[validCubes]],  \
-                xyz = cubes_param_np['xyz'][_batch],  \
+                min_xyz = cubes_param_np['xyz'][_batch],  \
                 resol = cubes_param_np['resol'][_batch],  \
                 colorize_cube_D = cube_D,\
                 cameraPOs=cameraPOs_np, \

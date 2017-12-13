@@ -224,7 +224,7 @@ def __weighted_accuracy__(prediction, target):
     return (T.mean(accuracy_pos) + T.mean(accuracy_neg))/2.0
 
 
-def SurfaceNet_fn_trainVal(N_viewPairs4inference, default_lr, input_cube_size, D_viewPairFeature, \
+def __SurfaceNet_fn_trainVal__(N_viewPairs4inference, default_lr, input_cube_size, D_viewPairFeature, \
             num_hidden_units, CHANNEL_MEAN, return_train_fn=True, return_val_fn=True, with_weight=True):
 
     """
@@ -252,7 +252,7 @@ def SurfaceNet_fn_trainVal(N_viewPairs4inference, default_lr, input_cube_size, D
             D_viewPairFeature, num_hidden_units, with_weight)
     if return_val_fn:
         pred_fuse_val = lasagne.layers.get_output(net["output_fusionNet"], deterministic=True)
-        # accuracy_val = lasagne.objectives.binary_accuracy(pred_fuse_val, output_var) # in case soft_gt
+        # accuracy_val = lasagne.objectives.binary_accuracy(pred_fuse_val, output_var) # in case soft_label
         accuracy_val = __weighted_accuracy__(pred_fuse_val, output_var)
 
         # fuseNet_val_fn = theano.function([input_var, output_var], [accuracy_val,pred_fuse_val])
@@ -282,7 +282,7 @@ def SurfaceNet_fn_trainVal(N_viewPairs4inference, default_lr, input_cube_size, D
             updates = lasagne.updates.nesterov_momentum(aggregated_loss, params, learning_rate=params.__lr)   
 
 
-        # accuracy = lasagne.objectives.binary_accuracy(pred_fuse, output_var) # in case soft_gt
+        # accuracy = lasagne.objectives.binary_accuracy(pred_fuse, output_var) # in case soft_label
         accuracy = __weighted_accuracy__(pred_fuse, output_var)
 
         train_fn_input_var_list = [input_var, similFeature_var, output_var] if with_weight \
@@ -292,6 +292,34 @@ def SurfaceNet_fn_trainVal(N_viewPairs4inference, default_lr, input_cube_size, D
 
         train_fn = theano.function(train_fn_input_var_list, train_fn_output_var_list, updates=updates)
     return net, train_fn, val_fn
+
+
+def SurfaceNet_trainVal():
+    """
+    Unpickles and loads parameters into a Lasagne model.
+    """
+    # define and load SurfaceNet
+    lr_tensor = theano.shared(np.array(params_volume.__lr, dtype=theano.config.floatX))         
+    if params_volume.__define_fns:  # can turn off for debug
+        net, train_fn, val_fn = __SurfaceNet_fn_trainVal__( \
+                return_train_fn = params_volume.__train_ON, \
+                return_val_fn = params_volume.__val_ON, \
+                with_weight = params_volume.__train_fusionNet, \
+                input_cube_size = params_volume.__input_hwd, \
+                N_samples_perGroup = params_volume.__N_viewPairs2train, \
+                Dim_feature = params_volume.__similNet_features_dim, \
+                num_hidden_units = params_volume.__similNet_hidden_dim, \
+                default_lr = lr_tensor)
+
+    if params_volume.__use_pretrained_model == True:
+        model_file = params_volume.__pretrained_model_file
+        print ('loading volumeNet / fusionNet model: {}'.format(model_file))
+        layers_2_load_model = [net[_layer_name] for _layer_name in params_volume.__layer_2_load_model]
+
+        with open(model_file) as f:
+            data = pickle.load(f)
+        lasagne.layers.set_all_param_values(layers_2_load_model, data)
+    return train_fn, val_fn
 
 
 def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPairFeature, num_hidden_units, \
@@ -357,7 +385,7 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
         unfused_predictions_var = output_fusionNet_var
 
     if with_groundTruth:
-        # accuracy_val_givenWeight = lasagne.objectives.binary_accuracy(output_fusionNet_var, output_var) # in case of soft_gt
+        # accuracy_val_givenWeight = lasagne.objectives.binary_accuracy(output_fusionNet_var, output_var) # in case of soft_label
         accuracy_val_givenWeight = __weighted_accuracy__(output_fusionNet_var, output_var)
 
 

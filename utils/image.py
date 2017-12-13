@@ -54,6 +54,8 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
         &&
         the images' sizes are equal.
 
+    Note that the size of the images may be different.
+
     ---------
     inputs:
         datasetFolder: where the dataset locates
@@ -74,17 +76,49 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
     loaded img ./test/Lasagne0006.jpg
     >>> imgs_np.shape
     (2, 225, 225, 3)
+    >>> imgs_np[:, 0, 0]
+    array([[216, 228, 240],
+           [216, 228, 240]], dtype=uint8)
     """
 
-    imgs_list = []
+    if return_list:
+        imgs_list = []
 
-    for i, viewIndx in enumerate(viewList):
-        imgPath = os.path.join(datasetFolder, imgNamePattern.replace('#', '{:03}'.format(viewIndx)))  # we assume the name pattern looks like 'x/x/*001*.xxx', if {:04}, add one 0 in the pattern: '*0#*.xxx'
-        img = scipy.misc.imread(imgPath)    # read as np array
-        imgs_list.append(img)
-        print('loaded img ' + imgPath)
-    
-    return imgs_list if return_list else np.stack(imgs_list)
+        for i, viewIndx in enumerate(viewList):
+            imgPath = os.path.join(datasetFolder, imgNamePattern.replace('#', '{:03}'.format(viewIndx)))  # we assume the name pattern looks like 'x/x/*001*.xxx', if {:04}, add one 0 in the pattern: '*0#*.xxx'
+            img = scipy.misc.imread(imgPath)    # read as np array
+            imgs_list.append(img)
+            print('loaded img ' + imgPath)
+        
+        return imgs_list 
+    else:
+        imgs_np = None
+        for i, viewIndx in enumerate(viewList):
+            imgPath = os.path.join(datasetFolder, imgNamePattern.replace('#', '{:03}'.format(viewIndx)))  # we assume the name pattern looks like 'x/x/*001*.xxx', if {:04}, add one 0 in the pattern: '*0#*.xxx'
+            img = scipy.misc.imread(imgPath)    # read as np array
+            if i == 0:
+                imgs_np = np.zeros((len(viewList), ) + img.shape).astype(img.dtype)
+            imgs_np[i] = img
+            print('loaded img ' + imgPath)
+        return imgs_np
+
+def readImages_models_views_lights(datasetFolder, modelList, viewList, lightConditions):
+    """
+    Assume the images taken for the same model have the same shape.
+    Return list loop through models with each element = np.array (N_views, N_lights, h, w, 3/1)
+    """
+
+    images4models_list = [None for _model in modelList]
+    for _i, _model in enumerate(modelList):
+        images4lights = None
+        for _j, _light in enumerate(lightConditions):
+            images4views = readImages(datasetFolder = datasetFolder, imgNamePattern = params.imgNamePattern(_model, _light), \
+                    viewList = viewList, return_list = False)
+            if _j == 0:
+                images4lights = np.zeros((len(viewList), len(lightConditions)) + tuple(images4lights.shape[-3:])).astype(images4views.dtype)
+            images4lights[:, _j] = images4views
+        images4models_list[_i] = images4lights
+    return images4models_list
 
 
 def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, interp_order = 2):
