@@ -59,12 +59,11 @@ def __readCameraPOs_as_np_Middlebury__(cameraPO_file, viewList):
 
 
 
-def readCameraPOs_as_np(datasetFolder, datasetName, poseNamePattern, model, viewList):
+def readCameraPOs_as_np(datasetFolder, datasetName, poseNamePattern, viewList):
     """
     inputs:
       datasetFolder: 'x/x/x/middlebury'
       datasetName: 'DTU' / 'Middlebury'
-      model: 1..128 / 'dinoxx'
       viewList: [3,8,21,...]
     output:
       cameraPOs (N_views,3,4) np.flost64

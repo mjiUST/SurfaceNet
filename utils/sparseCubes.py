@@ -41,6 +41,7 @@ def dense2sparse(prediction, rgb, param, viewPair, min_prob = 0.5, rayPool_thres
         param_new: np.float32(N_nonempty_cubes, 4): after center crop
     """
 
+    # TODO: rewrite to extract out the dense2sparse submodule
     N_cubes, D_orig, _, _ = prediction.shape # [:2]
     nonempty_cube_indx, vxl_ijk_list, prediction_list, rgb_list, rayPooling_votes_list =\
             [], [], [], [], []
@@ -77,6 +78,45 @@ def dense2sparse(prediction, rgb, param, viewPair, min_prob = 0.5, rayPool_thres
     return nonempty_cube_indx, vxl_ijk_list, prediction_list, rgb_list, rayPooling_votes_list, param_new
 
 
+def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0):
+    """
+    given sparse representation of the coordes (ij / ijk) of occupied elements (pixel / voxel / ...)
+        N_dims = coords_list[0].shape[1]
+        N_samples = len(coords_list)
+        coords_shape: if tuple, len(coords_shape) should = N_dims
+                if int, coords_shape = (coords_shape, ) * N_dims
+                if None, coords_shape = (max(coords_list), ) * N_dims
+        default_value: value of the not listed elements
+    Note: make sure the max(coords_index) < corresponding coords_shape
+    return dense numpy array with shape=(N_samples, ) + coords_shape
+
+    ---------
+    example:
+    >>> coords_list = [np.zeros((0, 2)), np.array([[0, 1], [3, 6]]), np.array([[5,5], [2,3], [8, 8]])]
+    >>> value_list = [np.zeros((0, )), np.array([0.9, 0]), np.array([0.0, 1, 2])]
+    >>> dense_output = sparse2dense(coords_list, value_list, coords_shape = (10, 12))
+    >>> print(dense_output.shape)
+    (3, 10, 12)
+    >>> print(dense_output[[0, 1, 1], [0, 0, 3], [2, 1, 6]])
+    [ 0.   0.9  0. ]
+    >>> np.allclose(sparse2dense(coords_list, value_list, coords_shape = 9), sparse2dense(coords_list, value_list, coords_shape = (9, 9)))
+    True
+    """
+
+    N_samples = len(coords_list)
+    N_dims = coords_list[0].shape[1]
+
+    # calculate output shape
+    if coords_shape is None:    # assume it is hypercubes
+        coord_shape = max([_.max() for _ in coords_list]) + 1   # the max coordinate + 1
+        coords_shape = (coord_shape, ) * N_dims
+    elif (not isinstance(coords_shape, tuple)) and (not isinstance(coords_shape, list)):
+        coords_shape = (coords_shape, ) * N_dims
+    dense_output = np.ones((N_samples, ) + coords_shape) * default_value    
+
+    for _index, _coords in enumerate(coords_list):
+        dense_output[_index][[_ for _ in _coords.T.astype(np.int)]] = value_list[_index]
+    return dense_output
 
 
 def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, min_prob = 0.5, rayPool_thresh = 0, \
@@ -409,5 +449,7 @@ def __debug():
     pass        
 
 
+import doctest
+doctest.testmod()
 
 

@@ -102,7 +102,7 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
             print('loaded img ' + imgPath)
         return imgs_np
 
-def readImages_models_views_lights(datasetFolder, modelList, viewList, lightConditions):
+def readImages_models_views_lights(datasetFolder, modelList, viewList, lightConditions, imgNamePattern_fn):
     """
     Assume the images taken for the same model have the same shape.
     Return list loop through models with each element = np.array (N_views, N_lights, h, w, 3/1)
@@ -112,10 +112,10 @@ def readImages_models_views_lights(datasetFolder, modelList, viewList, lightCond
     for _i, _model in enumerate(modelList):
         images4lights = None
         for _j, _light in enumerate(lightConditions):
-            images4views = readImages(datasetFolder = datasetFolder, imgNamePattern = params.imgNamePattern(_model, _light), \
-                    viewList = viewList, return_list = False)
+            images4views = readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern_fn(_model, _light), \
+                    viewList = viewList, return_list = False) # (N_views, H, W, 3)
             if _j == 0:
-                images4lights = np.zeros((len(viewList), len(lightConditions)) + tuple(images4lights.shape[-3:])).astype(images4views.dtype)
+                images4lights = np.zeros((len(viewList), len(lightConditions)) + tuple(images4views.shape[-3:])).astype(images4views.dtype)
             images4lights[:, _j] = images4views
         images4models_list[_i] = images4lights
     return images4models_list

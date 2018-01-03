@@ -298,6 +298,7 @@ def SurfaceNet_trainVal():
     """
     Unpickles and loads parameters into a Lasagne model.
     """
+
     # define and load SurfaceNet
     lr_tensor = theano.shared(np.array(params_volume.__lr, dtype=theano.config.floatX))         
     if params_volume.__define_fns:  # can turn off for debug

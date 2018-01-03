@@ -3,6 +3,7 @@ import sys
 import os
 
 import params
+import main_train
 import main_reconstruct
 sys.path.append("./utils")
 import adapthresh
@@ -39,5 +40,4 @@ if __name__ == "__main__":
                 ply_filePath = adapthresh.adapthresh(**kwargs)
 
     elif params.whatUWant is 'train_model':
-        # main_train.train()
-        pass
+        main_train.train()

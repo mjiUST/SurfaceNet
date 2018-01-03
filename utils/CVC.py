@@ -2,6 +2,7 @@
 import copy
 import numpy as np
 
+import transforms
 
 def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, min_xyz, resol, densityCube, colorize_cube_D):
     """ 
@@ -18,7 +19,7 @@ def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, min_xyz, resol, den
     indx_z = indx_z * resol + min_z
     homogen_1s = np.ones(colorize_cube_D**3, dtype=np.float64)
     pts_4D = np.vstack([indx_x.flatten(),indx_y.flatten(),indx_z.flatten(),homogen_1s])
-    
+
     N_views = len(view_set)
     colored_cubes = np.zeros((N_views,3,colorize_cube_D,colorize_cube_D,colorize_cube_D))
     # only chooce from inScope views
@@ -42,6 +43,7 @@ def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, min_xyz, resol, den
         pts_RGB = np.zeros((colorize_cube_D**3, 3))
         img = model_imgs_np[_view]  ## use viewIndx
         max_h, max_w, _ = img.shape
+        # only assign the in scope voxels. Otherwise, simply leave to black.
         inScope_pts_indx = (pts_w<max_w) & (pts_h<max_h) & (pts_w>=0) & (pts_h>=0)
         pts_RGB[inScope_pts_indx] = img[pts_h[inScope_pts_indx],pts_w[inScope_pts_indx]]
         colored_cubes[_n] = pts_RGB.T.reshape((3,colorize_cube_D,colorize_cube_D,colorize_cube_D))
@@ -49,13 +51,11 @@ def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, min_xyz, resol, den
     return colored_cubes
 
 
-def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, models_img, colorize_cube_D, \
-            occupiedCubes_01=None):     
+def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, models_img, colorize_cube_D):     
     """
     inputs: 
     selected_viewPairs: (N_cubes, N_select_viewPairs, 2)
     min_xyz, resol: parameters for each occupiedCubes (N,params)
-    occupiedCubes_01: multiple occupiedCubes (N,)+(colorize_cube_D,)*3
     return:
     coloredCubes = (N*N_select_viewPairs,3*2)+(colorize_cube_D,)*3 
     """
@@ -94,8 +94,46 @@ def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, models_img, 
     return coloredCubes.reshape((N_cubes*N_select_viewPairs,3*2)+(colorize_cube_D,)*3)
 
 
+def gen_models_coloredCubes(viewPairs, cube_params, cameraPOs, models_img_list, cube_D):
+    """
+    given different cubes' params (xyz_min, model_index, resolution) & images with cameraPOs
+    generate CVCs (N_cubes * N_viewPairs, 3+3, s, s, s), where s = cube_D
+    
+    """
 
-def preprocess_augmentation(gt_sub, X_sub, mean_rgb, augment_ON = True, crop_ON = True):
+    N_cubes, N_viewPairs = viewPairs.shape[:2]
+    cube_D = cube_params[0]['cube_D']  # all the cubes should have the same size (cube_D, )*3
+    output_CVC = np.zeros((N_cubes, N_viewPairs, 3+3) + (cube_D, ) * 3)
+    for _cube in range(N_cubes):
+        # cube_param: min_xyz / resolution / cube_D / modelIndex
+        _modelIndex = cube_params[_cube]['modelIndex']
+        # input (1, N_viewPair, 2) view index, return (N_viewPair * 1, 3+3, s, s, s) 
+        output_CVC[_cube] = gen_coloredCubes(selected_viewPairs = viewPairs[_cube: _cube+1],
+                min_xyz = cube_params[_cube]['min_xyz'], 
+                resol = cube_params[_cube]['resolution'], 
+                cameraPOs = cameraPOs, 
+                models_img_list = models_img[_modelIndex], 
+                colorize_cube_D = cube_D)
+    return output_CVC.reshape((N_cubes * N_viewPairs, 3+3) + (cube_D, ) * 3))
+
+
+def data_augment_rand_crop(Xlist, crop_size):
+    # random crop on ending 3 dimensions of any tensor with grid_D>=3
+    randx,randy,randz = np.random.randint(0,grid_D-crop_size+1,size=(3,))
+    #[...,xxx], ... means 
+    return [X[...,randx:randx+crop_size,randy:randy+crop_size,randz:randz+crop_size] for X in Xlist]
+ 
+def data_augment_crop(Xlist, crop_size, random_crop=True):
+    # random crop on ending 3 dimensions of any tensor with grid_D>=3
+    if random_crop == True:
+        randx,randy,randz = np.random.randint(0,grid_D-crop_size+1,size=(3,))
+    else:
+        randx,randy,randz = ((grid_D-crop_size+1) / 2, ) * 3
+        #[...,xxx], ... means 
+    return [X[...,randx:randx+crop_size,randy:randy+crop_size,randz:randz+crop_size] if X is not None else None for X in Xlist]
+
+
+def preprocess_augmentation(gt_sub, X_sub, mean_rgb, augment_ON = True, crop_ON = True, cube_D = 32):
     # X_sub /= 255.
     X_sub = X_sub.astype(np.float32)
     X_sub -= mean_rgb  ##.5
@@ -103,12 +141,16 @@ def preprocess_augmentation(gt_sub, X_sub, mean_rgb, augment_ON = True, crop_ON 
     if augment_ON:
         X_sub += np.random.randint(-30,30,1) # illumination argmentation
         X_sub += np.random.randint(-5,5,mean_rgb.shape) # color channel argmentation
-        gt_sub, X_sub = data_augment_rand_rotate(gt_sub, X_sub) # randly rotate multiple times
-        gt_sub, X_sub = data_augment_rand_rotate(gt_sub, X_sub)
-        gt_sub, X_sub = data_augment_rand_rotate(gt_sub, X_sub)
-        ##gt_sub, X_sub = data_augment_scipy_rand_rotate(gt_sub, X_sub) ## take a lot of time
+        gt_sub, X_sub = transforms.coTransform_flip( 
+                input_np_tuple = (gt_sub, X_sub),   # transform together 
+                axes = (-3, -2, -1),    # axes need to be flipped
+                randomFlip = True)      # randomly select axes to flip
+        # gt_sub, X_sub = data_augment_rand_rotate(gt_sub, X_sub)
+        # gt_sub, X_sub = data_augment_rand_rotate(gt_sub, X_sub)
     if crop_ON:
-        gt_sub, X_sub = data_augment_crop([gt_sub, X_sub], random_crop=augment_ON) # smaller size cube       
+        gt_sub, X_sub = data_augment_crop([gt_sub, X_sub], crop_size = cube_D, random_crop=augment_ON) # smaller size cube       
+        # gt_sub, X_sub = coTransform_crop(input_np_tuple = (gt_sub, X_sub), 
+                # output_shape = output_shape, randomCrop = True):
     return gt_sub, X_sub
 
 
