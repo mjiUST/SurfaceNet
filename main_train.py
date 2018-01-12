@@ -8,16 +8,30 @@ sys.path.append("./utils")
 import image
 import camera
 import prepareData
+import sparseCubes
 sys.path.append("./nets")
 import SurfaceNet
-import similarityNet
+import SimilarityNet
 
 
-def train():
+def load_dnn_fns(with_relativeImpt, SurfaceNet_model_file = None):
+    """
+    define / load all the dnn functions for training / finetuning
+    """
 
-    ###########################
-    # prepare data, DTU dataset
-    ###########################
+    # define or load SurfaceNet
+    train_fn, val_fn = SurfaceNet.SurfaceNet_trainVal(with_relativeImpt, pretrained_model_file = SurfaceNet_model_file)
+
+    # TODO: define and load SimilarityNet
+
+    return train_fn, val_fn
+
+
+
+def loadFixedVar_4training():
+    """
+    load camera params and images, that don't change during training
+    """
 
     cameraPOs_np = camera.readCameraPOs_as_np(datasetFolder = params.__datasetFolder, datasetName = params.__datasetName, poseNamePattern = params.__poseNamePattern, viewList = params.__viewList)  # (N_views, 3, 4) np
     cameraTs_np = camera.cameraPs2Ts(cameraPOs = cameraPOs_np)  # (N_views, 3) np
@@ -33,33 +47,48 @@ def train():
             viewList = params.__viewList,
             lightConditions = params.__lightConditions,
             imgNamePattern_fn = params.imgNamePattern_fn)
+    return {'cameraPOs_np': cameraPOs_np, 'cameraTs_np': cameraTs_np, 'images_list_train': images_list_train, 'images_list_val': images_list_val}
 
-    # generate / load sparse surface points, (save if not exit)
-    # cube_param: min_xyz / resolution / cube_D / modelIndex
+
+def load_sparseSurfacePts(N_onSurfacePts_train, N_offSurfacePts_train, N_onSurfacePts_val, N_offSurfacePts_val, cube_D_loaded):
+    """
+    load candidate on/off surface cubes
+    """
+
     cube_param_train, vxl_ijk_list_train, density_list_train = prepareData.load_sparse_surfacePts_asnp( \
             modelIndexList = params.__modelList_train, \
             modelFile_pattern = os.path.join(params.__datasetFolder, params.__modelFile_pattern), \
             npzFile_pattern = os.path.join(params.__input_data_rootFld, params.__npzFile_pattern), \
-            N_pts_onOffSurface = [1000, 1000], cube_D = 50, inputDataType = 'pcd', \
+            N_pts_onOffSurface = [N_onSurfacePts_train, N_offSurfacePts_train], cube_D = cube_D_loaded, inputDataType = 'pcd', \
             cube_resolutionList = [0.8, 0.4, 0.2], density_dtype = 'float' if params.__soft_label else 'bool')
-    N_cubes_train = cube_param_train.shape[0]
 
     cube_param_val, vxl_ijk_list_val, density_list_val = prepareData.load_sparse_surfacePts_asnp( \
             modelIndexList = params.__modelList_val, \
             modelFile_pattern = os.path.join(params.__datasetFolder, params.__modelFile_pattern), \
             npzFile_pattern = os.path.join(params.__input_data_rootFld, params.__npzFile_pattern), \
-            N_pts_onOffSurface = [1000, 0], cube_D = 50, inputDataType = 'pcd', \
+            N_pts_onOffSurface = [N_onSurfacePts_val, N_offSurfacePts_val], cube_D = cube_D_loaded, inputDataType = 'pcd', \
             cube_resolutionList = [0.8, 0.4, 0.2], density_dtype = 'float' if params.__soft_label else 'bool')
-    N_cubes_val = cube_param_val.shape[0]
+
+    return {'cube_param_train': cube_param_train, 'vxl_ijk_list_train': vxl_ijk_list_train, 
+            'density_list_train': density_list_train, 'cube_param_val': cube_param_val, 
+            'vxl_ijk_list_val': vxl_ijk_list_val, 'density_list_val': density_list_val, 
+            'cube_D_loaded': cube_D_loaded}
 
 
-    ################
-    # define network
-    ################
+def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val, 
+        cube_param_train, vxl_ijk_list_train, density_list_train, 
+        cube_param_val, vxl_ijk_list_val, density_list_val, cube_D_loaded,
+        fn = None):
 
-    train_fn, val_fn = SurfaceNet.SurfaceNet_trainVal()
+    ###########################
+    # prepare data, DTU dataset
+    ###########################
 
-    # TODO: define and load similarityNet
+
+    # generate / load sparse surface points, (save if not exit)
+    # cube_param: min_xyz / resolution / cube_D / modelIndex
+    cube_D_loaded = 50
+
 
 
     #####################
@@ -67,6 +96,9 @@ def train():
     #####################
 
     N_viewPairs = params.__N_viewPairs4train
+    N_cubes_train = cube_param_train.shape[0]
+    N_cubes_val = cube_param_val.shape[0]
+    dense_gt_train = sparseCubes.sparse2dense(vxl_ijk_list_train, density_list_train, coords_shape = cube_D_loaded)
     for epoch in range(1, params.__N_epochs):
         for _batch in range(N_cubes_train / params.__chunk_len_train):
             selector = random.sample(range(N_cubes_train), params.__chunk_len_train) # randomly select = shuffle the samples
@@ -79,8 +111,8 @@ def train():
                     cube_D = cube_param_train['cube_D'][0],\
                     cameraPOs = cameraPOs_np, \
                     models_img_list = images_list_train)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
-            _gt_sub = (cube_param_val, vxl_ijk_list_val, density_list_val) # TODO:
-            _, _CVCs2_sub = CVC.preprocess_augmentation(None, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
+            _gt_sub = dense_gt_train[selector]
+            _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
             # TODO: eliminate the 'if' condition
             surfacePrediction, unfused_predictions = nViewPair_SurfaceNet_fn(_CVCs2_sub) if N_viewPairs4inference == 1 \
                                     else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])

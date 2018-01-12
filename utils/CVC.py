@@ -114,7 +114,7 @@ def gen_models_coloredCubes(viewPairs, cube_params, cameraPOs, models_img_list, 
                 cameraPOs = cameraPOs, 
                 models_img_list = models_img[_modelIndex], 
                 colorize_cube_D = cube_D)
-    return output_CVC.reshape((N_cubes * N_viewPairs, 3+3) + (cube_D, ) * 3))
+    return output_CVC.reshape((N_cubes * N_viewPairs, 3+3) + (cube_D, ) * 3)
 
 
 def data_augment_rand_crop(Xlist, crop_size):

@@ -8,6 +8,7 @@ import scipy.io
 
 # "reconstruct_model"
 whatUWant = "train_model"
+__define_fns = True
 
 __datasetName = 'Middlebury'  # Middlebury / DTU, only set the dataset for reconstruction
 __GPUMemoryGB = 12  # how large is your GPU memory (GB)
@@ -15,10 +16,6 @@ __input_data_rootFld = "./inputs"
 __output_data_rootFld = "./outputs"
 
 
-###########################
-#   several modes:
-#   "train_xxx" "reconstruct_model"
-###########################
 __DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
 __DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet"
 __DEBUG_input_data_rootFld_exists = os.path.exists(__DEBUG_input_data_rootFld)
@@ -29,13 +26,18 @@ __output_data_rootFld = __DEBUG_output_data_rootFld if __DEBUG_output_data_rootF
 debug_BB = False
 
 
+#######################
+## reconstruct_model ##
+#######################
+
 if whatUWant is "reconstruct_model": 
     """
-    In this mode, reconstruct models using the similarityNet and SurfaceNet.
+    In this mode, reconstruct models using the SimilarityNet and SurfaceNet.
     """
     #------------ 
     ## params only for reconstruction
     #------------
+
     # DTU: numbers: 1 .. 128
     # Middlebury: dinoSparseRing
     if __datasetName is 'DTU':
@@ -60,9 +62,9 @@ if whatUWant is "reconstruct_model":
             __batchSize_viewPair_w_perGB, \
             ], dtype=np.uint64) * __GPUMemoryGB
 
-    ############# 
-    ## similarNet
-    #############
+    #-----------
+    # similarNet
+    #-----------
 
     # each patch pair --> features to learn to decide view pairs
     # 2 * 128D/image patch + 1 * (dis)similarity + 1 * angle<v1,v2>
@@ -76,20 +78,20 @@ if whatUWant is "reconstruct_model":
     __weight_decay = 0.0001
     __DEFAULT_LR = 0 # will be updated during param tuning
 
-    ############
+    #-----------
     # SurfaceNet
-    ############
+    #-----------
 
     # view index of the considered views
     __use_pretrained_model = True
     if __use_pretrained_model:
-        __layerNameList_2_load = ["output_SurfaceNet_reshape","output_softmaxWeights"] ##output_fusionNet/fuse_op_reshape
+        __layerList_2_loadModel = ["output_SurfaceNet_reshape","output_softmaxWeights"] ##output_fusionNet/fuse_op_reshape
         __pretrained_SurfaceNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/2D_2_3D-19-0.918_0.951.model') # allDTU
     __cube_Dcenter = {32:26, 64:52}[__cube_D] # only keep the center part of the cube because of boundary effect of the convNet.
 
-    ####################
+    #-------------------
     # adaptive threshold
-    ####################
+    #-------------------
     __beta = 6
     __N_refine_iter = 8
     __cube_overlapping_ratio = 1/2. ## how large area is covered by the neighboring cubes. 
@@ -100,7 +102,19 @@ if whatUWant is "reconstruct_model":
   
 
 
+#################
+## train_model ##
+#################
+
 elif whatUWant is "train_model":
+
+    __train_ON = True
+    __val_ON = True
+    __use_pretrained_model = True
+    __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_with_SimilarityNet = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
+
 
     __datasetName = 'DTU'  # DTU
     __modelList_train = [2,6] # [2, 6, 7, 8, 14, 16, 18, 19, 20, 22, 30, 31, 36, 39, 41, 42, 44, \
@@ -109,7 +123,6 @@ elif whatUWant is "train_model":
             # 101, 102, 103, 104, 105, 107, 108, 109, 111, 112, 113, 115, 116, 119, 120, \
             # 121, 122, 123, 124, 125, 126, 127, 128]
     __modelList_val = [3,5]  # [3, 5, 17, 21, 28, 35, 37, 38, 40, 43, 56, 59, 66, 67, 82, 86, 106, 117]     # validation
-    __layer_2_load_model = ["output_volumeNet"] # ["output_volumeNet_reshape","output_softmaxWeights"]#"output_volumeNet" ##output_fusionNet/fuse_op_reshape
     __lightConditions = ['3_r5000']  # ['{}_r5000'.format(_) for _ in range(7)] + ['max']   # hard to load all the imgs to memory
     imgNamePattern_fn = lambda _model, _light: "Rectified/scan{}/rect_#_{}.png".format(_model, _light)    # replace # to {:03} 
     __datasetFolder = os.path.join(__input_data_rootFld, 'DTU_MVS')
@@ -118,14 +131,45 @@ elif whatUWant is "train_model":
     __npzFile_pattern = "surfacePts/DTU/model#.npz" # TODO:
     __soft_label = False
     __cube_D = 32 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
+    __cube_D_loaded = 50    # CVC size before random crop
     __chunk_len_train = 6
     __N_viewPairs4train = 6
     __N_epochs = 1000
-    __viewList = range(1,50)  # only use the first 49 views for training
+    __viewList = range(1,10)  # range(1,50) # only use the first 49 views for training
 
-###########################
-#   params rarely change
-###########################
+    # training function params:
+    __lr = 5
+    __lr_decay_per_N_epoch = 100
+    __lr_decay = np.array([0.1]).astype(np.float32)
+
+    __trainable_layerRange_with_SimilarityNet = ("feature_input", "output_softmaxWeights")
+    __trainable_layerRange_wo_SimilarityNet = None
+
+
+    if __use_pretrained_model:
+        __layerList_2_loadModel = ["output_SurfaceNet"]
+        if __train_SurfaceNet_wo_offSurfacePts or __train_SurfaceNet_with_offSurfacePts:
+            __pretrained_SurfaceNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model')
+        else:   # if ONLY train SurfaceNet + SimilarityNet
+            if __train_SurfaceNet_with_SimilarityNet:
+            __pretrained_SurfaceNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model')
+
+    else:  # Don't use pretrained model.
+        __pretrained_SurfaceNet_model_file = None
+
+    #---------------------------
+    # SurfaceNet + SimilarityNet
+    #---------------------------
+    # each patch pair --> features pair --> decide view pairs
+    # 2 * 128D/image patch + 1 * (dis)similarity + 1 * angle<v1,v2>
+    __similNet_features_dim = 128*2+1+1
+    __similNet_hidden_dim = 100 
+
+
+
+##########################
+## params rarely change ##
+##########################
 __MEAN_CVC_RGBRGB = np.asarray([123.68,  116.779,  103.939, 123.68,  116.779,  103.939]).astype(np.float32) # RGBRGB order (VGG mean)
 __MEAN_PATCHES_BGR = np.asarray([103.939,  116.779,  123.68]).astype(np.float32)
 
@@ -138,6 +182,9 @@ for _var in dir():
         exec("print '{} = '.format(_var), "+_var)
 
 
+###############
+## functions ##
+###############
 
 def load_modelSpecific_params(datasetName, model):
     """

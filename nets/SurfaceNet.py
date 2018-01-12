@@ -101,7 +101,7 @@ def __relativeWeight_net__(feature_input_var, D_viewPairFeature, num_hidden_unit
 
 
 def __weightedAverage_net__(input_var, feature_input_var, input_cube_size, N_viewPairs4inference, \
-             D_viewPairFeature, num_hidden_units, with_weight=True):
+             D_viewPairFeature, num_hidden_units, with_relativeImpt=True):
     """
     Because no matter train / val / test, the __weightedAverage_net__ (SurfaceNet + __relativeWeight_net__) will be build and the trained model will be loaded.
     Latter, when SurfaceNet_fn_xxx, only need to feed in the defined __weightedAverage_net__.
@@ -124,7 +124,7 @@ def __weightedAverage_net__(input_var, feature_input_var, input_cube_size, N_vie
     net = __1viewPair_SurfaceNet__(input_var_5D = input_var, input_var_shape = (None,3*2)+(input_cube_size,)*3, \
             N_predicts_perGroup = N_viewPairs4inference)
     net["output_SurfaceNet_reshape"] = ReshapeLayer(net["output_SurfaceNet"], shape=(-1, N_viewPairs4inference)+(input_cube_size,)*3)
-    if with_weight:
+    if with_relativeImpt:
         softmaxWeights_net = __relativeWeight_net__(feature_input_var, D_viewPairFeature,\
                 num_hidden_units, N_viewPairs4inference)
         net.update(softmaxWeights_net)
@@ -224,8 +224,8 @@ def __weighted_accuracy__(prediction, target):
     return (T.mean(accuracy_pos) + T.mean(accuracy_neg))/2.0
 
 
-def __SurfaceNet_fn_trainVal__(N_viewPairs4inference, default_lr, input_cube_size, D_viewPairFeature, \
-            num_hidden_units, CHANNEL_MEAN, return_train_fn=True, return_val_fn=True, with_weight=True):
+def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewPairFeature, \
+            num_hidden_units, return_train_fn=True, return_val_fn=True, with_relativeImpt=True):
 
     """
     This function only defines the train_fn and the val_fn while training process.
@@ -236,8 +236,8 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs4inference, default_lr, input_cube_siz
     For the val_fn when only have validation, refer to the [TODO].
 
     ===================
-    >> SurfaceNet_fn_trainVal(with_weight = True)
-    >> SurfaceNet_fn_trainVal(with_weight = False)
+    >> SurfaceNet_fn_trainVal(with_relativeImpt = True)
+    >> SurfaceNet_fn_trainVal(with_relativeImpt = False)
     """
     train_fn = None
     val_fn = None
@@ -248,8 +248,8 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs4inference, default_lr, input_cube_siz
     output_var = tensor5D('Y')
     similFeature_var = T.matrix('similFeature')
 
-    net = __weightedAverage_net__(input_var, similFeature_var, input_cube_size, N_viewPairs4inference,\
-            D_viewPairFeature, num_hidden_units, with_weight)
+    net = __weightedAverage_net__(input_var, similFeature_var, input_cube_size, N_viewPairs,\
+            D_viewPairFeature, num_hidden_units, with_relativeImpt)
     if return_val_fn:
         pred_fuse_val = lasagne.layers.get_output(net["output_fusionNet"], deterministic=True)
         # accuracy_val = lasagne.objectives.binary_accuracy(pred_fuse_val, output_var) # in case soft_label
@@ -257,15 +257,15 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs4inference, default_lr, input_cube_siz
 
         # fuseNet_val_fn = theano.function([input_var, output_var], [accuracy_val,pred_fuse_val])
 
-        val_fn_input_var_list = [input_var, similFeature_var, output_var] if with_weight\
+        val_fn_input_var_list = [input_var, similFeature_var, output_var] if with_relativeImpt\
                 else [input_var, output_var]
-        val_fn_output_var_list = [accuracy_val,pred_fuse_val] if with_weight\
+        val_fn_output_var_list = [accuracy_val,pred_fuse_val] if with_relativeImpt\
                 else [accuracy_val,pred_fuse_val]
         val_fn = theano.function(val_fn_input_var_list, val_fn_output_var_list)
     
     if return_train_fn:
         pred_fuse = lasagne.layers.get_output(net["output_fusionNet"])
-        output_softmaxWeights_var= lasagne.layers.get_output(net["output_softmaxWeights"]) if with_weight \
+        output_softmaxWeights_var= lasagne.layers.get_output(net["output_softmaxWeights"]) if with_relativeImpt \
                 else None
 
         #loss = __weighted_MSE__(pred_fuse, output_var, w_for_1 = 0.98) \
@@ -274,63 +274,65 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs4inference, default_lr, input_cube_siz
 
         aggregated_loss = lasagne.objectives.aggregate(loss)
 
-        if not params.__layer_range_tuple_2_update is None: 
-            updates = __updates__(net=net, cost=aggregated_loss, layer_range_tuple_2_update=params.__layer_range_tuple_2_update, \
+        trainable_layerRange = params.__trainable_layerRange_with_SimilarityNet if with_relativeImpt \
+                else params.__trainable_layerRange_wo_SimilarityNet
+        if not (trainable_layerRange is None):
+            updates = __updates__(net = net, cost = aggregated_loss, layer_range_tuple_2_update = trainable_layerRange, \
                     default_lr=default_lr, update_algorithm='nesterov_momentum') 
         else:
-            params = lasagne.layers.get_all_params(net["output_fusionNet"], trainable=True)
-            updates = lasagne.updates.nesterov_momentum(aggregated_loss, params, learning_rate=params.__lr)   
+            params_trainable = lasagne.layers.get_all_params(net["output_fusionNet"], trainable=True)
+            updates = lasagne.updates.nesterov_momentum(aggregated_loss, params_trainable, learning_rate=params.__lr)   
 
 
         # accuracy = lasagne.objectives.binary_accuracy(pred_fuse, output_var) # in case soft_label
         accuracy = __weighted_accuracy__(pred_fuse, output_var)
 
-        train_fn_input_var_list = [input_var, similFeature_var, output_var] if with_weight \
+        train_fn_input_var_list = [input_var, similFeature_var, output_var] if with_relativeImpt \
                 else [input_var, output_var]
-        train_fn_output_var_list = [loss,accuracy, pred_fuse, output_softmaxWeights_var] if with_weight \
+        train_fn_output_var_list = [loss,accuracy, pred_fuse, output_softmaxWeights_var] if with_relativeImpt \
                 else [loss,accuracy, pred_fuse]
 
         train_fn = theano.function(train_fn_input_var_list, train_fn_output_var_list, updates=updates)
     return net, train_fn, val_fn
 
 
-def SurfaceNet_trainVal():
+def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_file):
     """
     Unpickles and loads parameters into a Lasagne model.
+    If pretrained_model_file is None, don't use pretrained model.
     """
 
     # define and load SurfaceNet
-    lr_tensor = theano.shared(np.array(params_volume.__lr, dtype=theano.config.floatX))         
-    if params_volume.__define_fns:  # can turn off for debug
-        net, train_fn, val_fn = __SurfaceNet_fn_trainVal__( \
-                return_train_fn = params_volume.__train_ON, \
-                return_val_fn = params_volume.__val_ON, \
-                with_weight = params_volume.__train_fusionNet, \
-                input_cube_size = params_volume.__input_hwd, \
-                N_samples_perGroup = params_volume.__N_viewPairs2train, \
-                Dim_feature = params_volume.__similNet_features_dim, \
-                num_hidden_units = params_volume.__similNet_hidden_dim, \
-                default_lr = lr_tensor)
+    lr_tensor = theano.shared(np.array(params.__lr, dtype=theano.config.floatX))         
+    net, train_fn, val_fn = __SurfaceNet_fn_trainVal__( \
+            N_viewPairs = params.__N_viewPairs4train, \
+            default_lr = lr_tensor, \
+            input_cube_size = params.__cube_D, \
+            D_viewPairFeature = params.__similNet_features_dim, \
+            num_hidden_units = params.__similNet_hidden_dim, \
+            return_train_fn = params.__train_ON, \
+            return_val_fn = params.__val_ON, \
+            with_relativeImpt = with_relativeImpt, \
+            )
 
-    if params_volume.__use_pretrained_model == True:
-        model_file = params_volume.__pretrained_model_file
-        print ('loading volumeNet / fusionNet model: {}'.format(model_file))
-        layers_2_load_model = [net[_layer_name] for _layer_name in params_volume.__layer_2_load_model]
+    if not (pretrained_model_file is None):
+        print ('loading volumeNet / fusionNet model: {}'.format(pretrained_model_file))
+        layers_2_load_model = [net[_layer_name] for _layer_name in params.__layer_2_load_model]
 
-        with open(model_file) as f:
+        with open(pretrained_model_file) as f:
             data = pickle.load(f)
         lasagne.layers.set_all_param_values(layers_2_load_model, data)
     return train_fn, val_fn
 
 
 def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPairFeature, num_hidden_units, \
-            with_weight=True, with_groundTruth = True, return_unfused_predict = False):
+            with_relativeImpt=True, with_groundTruth = True, return_unfused_predict = False):
     """
     this function difines 2 net_fns, which could be used in the test phase:
     1. viewPair_relativeImpt_fn: calculate softmax weight given feature input
     2. nViewPair_SurfaceNet_fn: ouput a prediction based on the colored cube pairs with(out) weighted average. (based on whether the softmax weight is available)
 
-    when with_weight=True/False, N_viewPairs4inference=1:
+    when with_relativeImpt=True/False, N_viewPairs4inference=1:
         viewPair_relativeImpt_fn != None, because it will be used to find the argmax softmax weight. 
 
         In this case, the prediction would be the output of the SurfaceNet(don't need to reshape anymore). 
@@ -341,10 +343,10 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
     return_unfused_predict: True: also return the unfused predictions of all the view pairs.
             This return unfused predictions could be used for color fusion. 
     ==============
-    >> python -c "import nets; nets.__SurfaceNet_fn_inference__(with_weight=True, N_viewPairs4inference=1)"
-    >> __SurfaceNet_fn_inference__(with_weight=False, N_viewPairs4inference=1)
-    >> __SurfaceNet_fn_inference__(with_weight=True, N_viewPairs4inference=2)
-    >> __SurfaceNet_fn_inference__(with_weight=False, N_viewPairs4inference=2)
+    >> python -c "import nets; nets.__SurfaceNet_fn_inference__(with_relativeImpt=True, N_viewPairs4inference=1)"
+    >> __SurfaceNet_fn_inference__(with_relativeImpt=False, N_viewPairs4inference=1)
+    >> __SurfaceNet_fn_inference__(with_relativeImpt=True, N_viewPairs4inference=2)
+    >> __SurfaceNet_fn_inference__(with_relativeImpt=False, N_viewPairs4inference=2)
     """
     viewPair_relativeImpt_fn = None
     tensor5D = T.TensorType('float32', (False,)*5)
@@ -357,10 +359,10 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
     n_samples_perGroup_var = T.iscalar('n_samples_perGroup') # when setted as arg of theano.function, use the 'n_samples_perGroup' to pass value 
 
     net = __weightedAverage_net__(input_var, similFeature_var, input_cube_size, n_samples_perGroup_var,
-                 D_viewPairFeature, num_hidden_units, with_weight)
+                 D_viewPairFeature, num_hidden_units, with_relativeImpt)
 
     ##### the viewPair_relativeImpt_fn
-    if with_weight == True:
+    if with_relativeImpt == True:
         output_softmaxWeights_var= lasagne.layers.get_output(net["output_softmaxWeights"], deterministic=True)
 
         viewPair_relativeImpt_fn = theano.function([similFeature_var, theano.In(n_samples_perGroup_var, value=N_viewPairs4inference)], \
@@ -368,7 +370,7 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
              
     ##### the nViewPair_SurfaceNet_fn
     if N_viewPairs4inference >= 2:
-        if with_weight == True:
+        if with_relativeImpt == True:
             similWeight_var = T.matrix('similWeight')
             
             similWeight_input_layer = lasagne.layers.InputLayer((None,N_viewPairs4inference), similWeight_var)
@@ -381,7 +383,7 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
         output_fusionNet_var, unfused_predictions_var = lasagne.layers.get_output([net["output_fusionNet"], net["output_SurfaceNet_reshape"]], \
                 deterministic=True)
     elif N_viewPairs4inference == 1: # if only use 1 colored Cube pair, we don't need weight any more.
-        with_weight = False # IMPORTANT, in this case, the vars related to weights will be ignored
+        with_relativeImpt = False # IMPORTANT, in this case, the vars related to weights will be ignored
         output_fusionNet_var = lasagne.layers.get_output(net["output_SurfaceNet"], deterministic=True) 
         unfused_predictions_var = output_fusionNet_var
 
@@ -391,7 +393,7 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
 
 
     # *********************
-    fuseNet_fn_input_var_list = [input_var, similWeight_var] if with_weight \
+    fuseNet_fn_input_var_list = [input_var, similWeight_var] if with_relativeImpt \
             else [input_var] 
     # in the reconstruction procedure, we don't have ground truth
     fuseNet_fn_input_var_list += [output_var] if with_groundTruth else []
@@ -417,7 +419,7 @@ def SurfaceNet_inference(N_viewPairs4inference, model_file, layerNameList_2_load
     """
 
     # define DL functions: SurfaceNet
-    net, viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn = __SurfaceNet_fn_inference__(with_weight=True, with_groundTruth=False, \
+    net, viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn = __SurfaceNet_fn_inference__(with_relativeImpt=True, with_groundTruth=False, \
             input_cube_size = params.__cube_D, N_viewPairs4inference = N_viewPairs4inference, \
             D_viewPairFeature = params.__D_viewPairFeature, num_hidden_units = params.__similNet_hidden_dim,\
             return_unfused_predict = True)

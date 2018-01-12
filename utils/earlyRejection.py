@@ -29,7 +29,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
     projection_h_range = np.stack([img_h_cubesCorner.min(axis=-1), img_h_cubesCorner.max(axis=-1)], axis=-1)  # (N_views, N_cubes, 8) --> (N_views, N_cubes) --> (N_views, N_cubes, 2)
     projection_w_range = np.stack([img_w_cubesCorner.min(axis=-1), img_w_cubesCorner.max(axis=-1)], axis=-1)
 
-    for _view, _image in enumerate(images_list):      # patch size determined by the similarityNet
+    for _view, _image in enumerate(images_list):      # patch size determined by the SimilarityNet
         _img_h, _img_w, _img_c = _image.shape
         _inScope = image.img_hw_cubesCorner_inScopeCheck(hw_shape = (_img_h, _img_w), img_h_cubesCorner = img_h_cubesCorner[_view], img_w_cubesCorner = img_w_cubesCorner[_view])   # (N_cubes,) inScope check and select perticular _logRatio_int. 
         inScope_cubes_vs_views[:,_view] = _inScope
@@ -41,7 +41,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
             _patches = image.cropImgPatches(img = _image, range_h = projection_h_range[_view][_inScope], range_w = projection_w_range[_view][_inScope], patchSize = patchSize, pyramidRate = 1, interp_order = 2)  # (N_cubes_inScope, patchSize, patchSize, 3/1)
             _patches_preprocessed = image.preprocess_patches(_patches.astype(np.float32), mean_BGR = patches_mean_bgr)
             for _batch in utils.yield_batch_npBool(N_all = N_cubes_inScope, batch_size = batchSize):      # note that bool selector: _batch.shape == (N_cubes,)
-                _patches_embedding_inScope[_batch] = patch2embedding_fn(_patches_preprocessed[_batch])     # (N_batch, 3/1, patchSize, patchSize) --> (N_batch, D_embedding). similarityNet: patch --> embedding
+                _patches_embedding_inScope[_batch] = patch2embedding_fn(_patches_preprocessed[_batch])     # (N_batch, 3/1, patchSize, patchSize) --> (N_batch, D_embedding). SimilarityNet: patch --> embedding
             patches_embedding[_inScope, _view] = _patches_embedding_inScope    # try to avoid index chain for assignment: a[xx][xx]=xx
     return patches_embedding, inScope_cubes_vs_views 
 

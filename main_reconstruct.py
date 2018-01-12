@@ -14,15 +14,12 @@ import utils
 import sparseCubes
 sys.path.append("./nets")
 import scene
-import similarityNet
+import SimilarityNet
 import SurfaceNet
 import earlyRejection
 import viewPairSelection
 import CVC
 import denoising
-
-
-
 
 
 def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, outputFolder, N_viewPairs4inference, resol, BB, viewList):
@@ -53,10 +50,10 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     N_views, N_cubes = img_h_cubesCorner.shape[:2]
     D_embedding = params.__D_imgPatchEmbedding 
 
-    # define and load similarityNet
-    patch2embedding_fn, embeddingPair2simil_fn = similarityNet.similarityNet_inference(model_file = params.__pretrained_similNet_model_file, \
+    # define and load SimilarityNet
+    patch2embedding_fn, embeddingPair2simil_fn = SimilarityNet.SimilarityNet_inference(model_file = params.__pretrained_similNet_model_file, \
             imgPatch_hw_size = (params.__imgPatch_hw_size, )*2 )
-    viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn = SurfaceNet.SurfaceNet_inference(N_viewPairs4inference = N_viewPairs4inference, model_file = params.__pretrained_SurfaceNet_model_file, layerNameList_2_load = params.__layerNameList_2_load)
+    viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn = SurfaceNet.SurfaceNet_inference(N_viewPairs4inference = N_viewPairs4inference, model_file = params.__pretrained_SurfaceNet_model_file, layerNameList_2_load = params.__layerList_2_loadModel)
 
 
     #################

@@ -99,6 +99,9 @@ def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0
     (3, 10, 12)
     >>> print(dense_output[[0, 1, 1], [0, 0, 3], [2, 1, 6]])
     [ 0.   0.9  0. ]
+    >>> dense_output = sparse2dense(coords_list, value_list, coords_shape = None)
+    >>> print(dense_output.shape)
+    (3, 9, 9)
     >>> np.allclose(sparse2dense(coords_list, value_list, coords_shape = 9), sparse2dense(coords_list, value_list, coords_shape = (9, 9)))
     True
     """
@@ -108,7 +111,7 @@ def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0
 
     # calculate output shape
     if coords_shape is None:    # assume it is hypercubes
-        coord_shape = max([_.max() for _ in coords_list]) + 1   # the max coordinate + 1
+        coord_shape = max([0 if _.size == 0 else _.max() for _ in coords_list]) + 1   # the max coordinate + 1
         coords_shape = (coord_shape, ) * N_dims
     elif (not isinstance(coords_shape, tuple)) and (not isinstance(coords_shape, list)):
         coords_shape = (coords_shape, ) * N_dims

@@ -74,7 +74,7 @@ def __embedding_layer_TO_similarity_layer__(embedding_layer, tripletInput=True):
     net['similarity'] = DenseLayer(net['euclid_dist'], num_units=1, nonlinearity=sigmoid)
     return net
  
-def __similarityNet__(input_var, imgPatch_hw_size, tripletInput=True):
+def __SimilarityNet__(input_var, imgPatch_hw_size, tripletInput=True):
     """
     how to check the correctness. (how to check the equality of two lasagne nets)
     Can use lasagne.layers.count_params/.get_all_layers/params
@@ -161,11 +161,11 @@ def __updates__(net, cost, layer_range_tuple_2_update, default_lr, update_algori
 
 
 
-def similarityNet_fn_train_val(imgPatch_hw_size, return_train_fn=True, return_val_fn=True):
+def SimilarityNet_fn_train_val(imgPatch_hw_size, return_train_fn=True, return_val_fn=True):
     train_fn = None
     val_fn = None
     input_var = T.tensor4('inputs')
-    net_train_val = __similarityNet__(input_var, imgPatch_hw_size, tripletInput=True)
+    net_train_val = __SimilarityNet__(input_var, imgPatch_hw_size, tripletInput=True)
 
     if return_val_fn:
         predict_var_val = lasagne.layers.get_output(net_train_val['similarity'], deterministic=True)
@@ -193,14 +193,14 @@ def similarityNet_fn_train_val(imgPatch_hw_size, return_train_fn=True, return_va
 
 
 
-def similarityNet_fn_patchPair_2_embedding(imgPatch_hw_size):
+def SimilarityNet_fn_patchPair_2_embedding(imgPatch_hw_size):
     """
     Used for training
     to get the embedding+similarity output with input of patch pairs
-    The returned layer is used to load the trained similarityNet model.
+    The returned layer is used to load the trained SimilarityNet model.
     """
     input_var = T.tensor4('inputs')
-    net_fuse = __similarityNet__(input_var, imgPatch_hw_size, tripletInput=False)
+    net_fuse = __SimilarityNet__(input_var, imgPatch_hw_size, tripletInput=False)
 
     embedding_var, similarity = lasagne.layers.get_output([net_fuse['embedding'], \
             net_fuse['similarity']], deterministic=True)
@@ -208,7 +208,7 @@ def similarityNet_fn_patchPair_2_embedding(imgPatch_hw_size):
     fn_fuse = theano.function([input_var], [embedding_var, similarity])  
     return net_fuse['similarity'], fn_fuse
 
-def similarityNet_fn_patch_2_embedding_2_similarity(imgPatch_hw_size):
+def SimilarityNet_fn_patch_2_embedding_2_similarity(imgPatch_hw_size):
     """
     Used for viewPair selection and weighted average
     the case where the 2 functions: get_patch_embedding and the calc_similarity_from_embeddings_of_patchPair are seperately used.
@@ -228,19 +228,19 @@ def similarityNet_fn_patch_2_embedding_2_similarity(imgPatch_hw_size):
     return net_embedding['embedding'], net_embeddingPair2simil['similarity'], patch2embedding_fn, embeddingPair2simil_fn
 
 
-def similarityNet_inference(model_file, imgPatch_hw_size):
+def SimilarityNet_inference(model_file, imgPatch_hw_size):
     """
-    return the similarityNet functions used for inference, and load the model weights.
+    return the SimilarityNet functions used for inference, and load the model weights.
     """
 
-    # define DL functions: similarityNet
+    # define DL functions: SimilarityNet
     net_embeddingLayer, net_embeddingPair2similarityLayer, patch2embedding_fn, embeddingPair2simil_fn = \
-            similarityNet_fn_patch_2_embedding_2_similarity(imgPatch_hw_size)
+            SimilarityNet_fn_patch_2_embedding_2_similarity(imgPatch_hw_size)
     # load weights  TODO
     with open(model_file) as f:
         modelWeights = pickle.load(f)
     lasagne.layers.set_all_param_values([net_embeddingLayer, net_embeddingPair2similarityLayer], modelWeights) #[similNet_outputLayer]
-    print('loaded similarityNet model: {}'.format(model_file))
+    print('loaded SimilarityNet model: {}'.format(model_file))
     return patch2embedding_fn, embeddingPair2simil_fn 
 
 
