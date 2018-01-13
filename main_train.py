@@ -5,6 +5,7 @@ import numpy as np
 
 import params
 sys.path.append("./utils")
+import CVC
 import image
 import camera
 import prepareData
@@ -14,18 +15,17 @@ import SurfaceNet
 import SimilarityNet
 
 
-def load_dnn_fns(with_relativeImpt, SurfaceNet_model_file = None):
+def load_dnn_fns(with_relativeImpt, SurfaceNet_model_path = None):
     """
     define / load all the dnn functions for training / finetuning
     """
 
     # define or load SurfaceNet
-    train_fn, val_fn = SurfaceNet.SurfaceNet_trainVal(with_relativeImpt, pretrained_model_file = SurfaceNet_model_file)
+    train_fn, val_fn = SurfaceNet.SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path = SurfaceNet_model_path)
 
     # TODO: define and load SimilarityNet
 
-    return train_fn, val_fn
-
+    return {'train_fn': train_fn, 'val_fn': val_fn}
 
 
 def loadFixedVar_4training():
@@ -78,17 +78,7 @@ def load_sparseSurfacePts(N_onSurfacePts_train, N_offSurfacePts_train, N_onSurfa
 def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val, 
         cube_param_train, vxl_ijk_list_train, density_list_train, 
         cube_param_val, vxl_ijk_list_val, density_list_val, cube_D_loaded,
-        fn = None):
-
-    ###########################
-    # prepare data, DTU dataset
-    ###########################
-
-
-    # generate / load sparse surface points, (save if not exit)
-    # cube_param: min_xyz / resolution / cube_D / modelIndex
-    cube_D_loaded = 50
-
+        train_fn = None, val_fn = None):
 
 
     #####################
@@ -103,14 +93,15 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
         for _batch in range(N_cubes_train / params.__chunk_len_train):
             selector = random.sample(range(N_cubes_train), params.__chunk_len_train) # randomly select = shuffle the samples
             # generate CVC
-            rand_viewPairs = np.random.randint(0, params.__viewList, (N_cubes_train, N_viewPairs, 2)) # (N_cubes_train, N_viewPair, 2) randomly select viewPairs for each cube
+            rand_viewPairs = np.random.randint(0, len(params.__viewList), (params.__chunk_len_train, N_viewPairs, 2)) # (params.__chunk_len_train, N_viewPair, 2) randomly select viewPairs for each cube
             # dtype = uint8
             _CVCs1_sub = CVC.gen_models_coloredCubes( \
                     viewPairs = rand_viewPairs,  \
-                    cube_param = cube_param_train[selector], \
-                    cube_D = cube_param_train['cube_D'][0],\
+                    cube_params = cube_param_train[selector], \
                     cameraPOs = cameraPOs_np, \
-                    models_img_list = images_list_train)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
+                    models_img_list = images_list_train, \
+                    cube_D = cube_param_train['cube_D'][0] \
+                    ) # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
             _gt_sub = dense_gt_train[selector]
             _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
             # TODO: eliminate the 'if' condition

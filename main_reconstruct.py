@@ -51,9 +51,9 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     D_embedding = params.__D_imgPatchEmbedding 
 
     # define and load SimilarityNet
-    patch2embedding_fn, embeddingPair2simil_fn = SimilarityNet.SimilarityNet_inference(model_file = params.__pretrained_similNet_model_file, \
+    patch2embedding_fn, embeddingPair2simil_fn = SimilarityNet.SimilarityNet_inference(model_path = params.__pretrained_similNet_model_path, \
             imgPatch_hw_size = (params.__imgPatch_hw_size, )*2 )
-    viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn = SurfaceNet.SurfaceNet_inference(N_viewPairs4inference = N_viewPairs4inference, model_file = params.__pretrained_SurfaceNet_model_file, layerNameList_2_load = params.__layerList_2_loadModel)
+    viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn = SurfaceNet.SurfaceNet_inference(N_viewPairs4inference = N_viewPairs4inference, model_path = params.__pretrained_SurfaceNet_model_path, layerNameList_2_load = params.__layerList_2_loadModel)
 
 
     #################
@@ -115,7 +115,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
                 resol = cubes_param_np['resol'][_batch],  \
                 colorize_cube_D = cube_D,\
                 cameraPOs=cameraPOs_np, \
-                models_img=images_list, \
+                model_imgs=images_list, \
                 visualization_ON = False)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
 
         _, _CVCs2_sub = CVC.preprocess_augmentation(None, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=False, crop_ON = False)

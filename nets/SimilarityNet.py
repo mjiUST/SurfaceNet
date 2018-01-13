@@ -228,7 +228,7 @@ def SimilarityNet_fn_patch_2_embedding_2_similarity(imgPatch_hw_size):
     return net_embedding['embedding'], net_embeddingPair2simil['similarity'], patch2embedding_fn, embeddingPair2simil_fn
 
 
-def SimilarityNet_inference(model_file, imgPatch_hw_size):
+def SimilarityNet_inference(model_path, imgPatch_hw_size):
     """
     return the SimilarityNet functions used for inference, and load the model weights.
     """
@@ -237,10 +237,10 @@ def SimilarityNet_inference(model_file, imgPatch_hw_size):
     net_embeddingLayer, net_embeddingPair2similarityLayer, patch2embedding_fn, embeddingPair2simil_fn = \
             SimilarityNet_fn_patch_2_embedding_2_similarity(imgPatch_hw_size)
     # load weights  TODO
-    with open(model_file) as f:
+    with open(model_path) as f:
         modelWeights = pickle.load(f)
     lasagne.layers.set_all_param_values([net_embeddingLayer, net_embeddingPair2similarityLayer], modelWeights) #[similNet_outputLayer]
-    print('loaded SimilarityNet model: {}'.format(model_file))
+    print('loaded SimilarityNet model: {}'.format(model_path))
     return patch2embedding_fn, embeddingPair2simil_fn 
 
 

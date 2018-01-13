@@ -51,7 +51,7 @@ def __colorize_cube__(view_set, cameraPOs_np, model_imgs_np, min_xyz, resol, den
     return colored_cubes
 
 
-def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, models_img, colorize_cube_D):     
+def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, model_imgs, colorize_cube_D):     
     """
     inputs: 
     selected_viewPairs: (N_cubes, N_select_viewPairs, 2)
@@ -72,7 +72,7 @@ def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, models_img, 
         selected_views = selected_viewPairs[_n_cube].flatten() 
         # because selected_views could include duplicated views, this case is not the best way. But if the N_select_viewPairs is small, it doesn't matter too much
         coloredCube = __colorize_cube__(view_set = selected_views, \
-                cameraPOs_np = cameraPOs, model_imgs_np = models_img, min_xyz = min_xyz[_n_cube], resol = resol[_n_cube], \
+                cameraPOs_np = cameraPOs, model_imgs_np = model_imgs, min_xyz = min_xyz[_n_cube], resol = resol[_n_cube], \
                 colorize_cube_D=colorize_cube_D, densityCube = occupiedCube_01)
 
 
@@ -94,10 +94,12 @@ def gen_coloredCubes(selected_viewPairs, min_xyz, resol, cameraPOs, models_img, 
     return coloredCubes.reshape((N_cubes*N_select_viewPairs,3*2)+(colorize_cube_D,)*3)
 
 
-def gen_models_coloredCubes(viewPairs, cube_params, cameraPOs, models_img_list, cube_D):
+def gen_models_coloredCubes(viewPairs, cube_params, cameraPOs, models_img_list, cube_D, random_colorCondition = False):
     """
     given different cubes' params (xyz_min, model_index, resolution) & images with cameraPOs
     generate CVCs (N_cubes * N_viewPairs, 3+3, s, s, s), where s = cube_D
+    random_colorCondition: If True: randomly select images with different (random) light conditions
+            If False: the set of model_imgs is under the same light condition.
     
     """
 
@@ -108,11 +110,18 @@ def gen_models_coloredCubes(viewPairs, cube_params, cameraPOs, models_img_list, 
         # cube_param: min_xyz / resolution / cube_D / modelIndex
         _modelIndex = cube_params[_cube]['modelIndex']
         # input (1, N_viewPair, 2) view index, return (N_viewPair * 1, 3+3, s, s, s) 
-        output_CVC[_cube] = gen_coloredCubes(selected_viewPairs = viewPairs[_cube: _cube+1],
-                min_xyz = cube_params[_cube]['min_xyz'], 
-                resol = cube_params[_cube]['resolution'], 
+        _1cube_slice = slice(_cube, _cube+1, 1)
+        if random_colorCondition: # TODO: ing
+            pass 
+        else: # the set of model_imgs is under the same light condition.
+            _model_lights_imgs = models_img_list[_modelIndex] # (N_views, N_lights, H, W, 3)
+            _N_lights = _model_lights_imgs.shape[1] # (N_views, N_lights, H, W, 3)
+            _model_imgs = _model_lights_imgs[:, np.random.randint(_N_lights)] # (N_views, H, W, 3)
+        output_CVC[_cube] = gen_coloredCubes(selected_viewPairs = viewPairs[_1cube_slice],
+                min_xyz = cube_params[_1cube_slice]['min_xyz'], 
+                resol = cube_params[_1cube_slice]['resolution'], 
                 cameraPOs = cameraPOs, 
-                models_img_list = models_img[_modelIndex], 
+                model_imgs = _model_imgs, 
                 colorize_cube_D = cube_D)
     return output_CVC.reshape((N_cubes * N_viewPairs, 3+3) + (cube_D, ) * 3)
 

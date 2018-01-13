@@ -55,7 +55,7 @@ def load_sparse_surfacePts_asnp(modelIndexList, modelFile_pattern, npzFile_patte
     """
 
     cube_param_list, vxl_ijk_list, density_list = [], [], []
-    for _modelIndex in modelIndexList:
+    for _ith_model, _modelIndex in enumerate(modelIndexList):
         # cube params: min_xyz / resolution / cube_D
         _cube_param, _vxl_ijk_list, _density_list = __generate_or_load_surfacePts__(_modelIndex, npzFile_pattern = npzFile_pattern, \
                 modelFile_pattern = modelFile_pattern, \
@@ -66,7 +66,7 @@ def load_sparse_surfacePts_asnp(modelIndexList, modelFile_pattern, npzFile_patte
                 density_dtype = density_dtype)
 
         # cube params: min_xyz / resolution / cube_D / modelIndex
-        append_fields(_cube_param, 'modelIndex', data = (np.ones(_cube_param.shape) * _modelIndex), usemask=False)  # append field to structured array
+        _cube_param = append_fields(_cube_param, 'modelIndex', dtypes = np.uint8, data = (np.ones(_cube_param.shape) * _ith_model), usemask=False)  # append field to structured array
 
         cube_param_list.append(_cube_param)
         vxl_ijk_list += list(_vxl_ijk_list)

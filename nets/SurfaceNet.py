@@ -296,10 +296,10 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
     return net, train_fn, val_fn
 
 
-def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_file):
+def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path):
     """
     Unpickles and loads parameters into a Lasagne model.
-    If pretrained_model_file is None, don't use pretrained model.
+    If pretrained_model_path is None, don't use pretrained model.
     """
 
     # define and load SurfaceNet
@@ -315,11 +315,11 @@ def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_file):
             with_relativeImpt = with_relativeImpt, \
             )
 
-    if not (pretrained_model_file is None):
-        print ('loading volumeNet / fusionNet model: {}'.format(pretrained_model_file))
-        layers_2_load_model = [net[_layer_name] for _layer_name in params.__layer_2_load_model]
+    if not (pretrained_model_path is None):
+        print ('loading volumeNet / fusionNet model: {}'.format(pretrained_model_path))
+        layers_2_load_model = [net[_layer_name] for _layer_name in params.__layerList_2_loadModel]
 
-        with open(pretrained_model_file) as f:
+        with open(pretrained_model_path) as f:
             data = pickle.load(f)
         lasagne.layers.set_all_param_values(layers_2_load_model, data)
     return train_fn, val_fn
@@ -413,7 +413,7 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
     nViewPair_SurfaceNet_fn = theano.function(fuseNet_fn_input_var_list, fuseNet_fn_output_var_list)
     return net, viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn
 
-def SurfaceNet_inference(N_viewPairs4inference, model_file, layerNameList_2_load):
+def SurfaceNet_inference(N_viewPairs4inference, model_path, layerNameList_2_load):
     """
     return the SurfaceNet functions used for inference, and load the model weights.
     """
@@ -426,10 +426,10 @@ def SurfaceNet_inference(N_viewPairs4inference, model_file, layerNameList_2_load
 
     # load the pretrained model
     layerList_2_load = [net[_layerName] for _layerName in layerNameList_2_load]
-    with open(model_file, 'r') as f:
+    with open(model_path, 'r') as f:
         file_data = pickle.load(f)
     lasagne.layers.set_all_param_values(layerList_2_load, file_data)
-    print ('loaded SurfaceNet model: {}'.format(model_file))
+    print ('loaded SurfaceNet model: {}'.format(model_path))
     return viewPair_relativeImpt_fn, nViewPair_SurfaceNet_fn
 
 

@@ -6,9 +6,9 @@ import scipy.io
 ## define the parameters that don't vary in the main function, such as the patch size and the cube size.
 ## for the parameters that may change in the different main loop through different models in a dataset, we load them use the function `load_modelSpecific_params` defined at the end of this file.
 
-# "reconstruct_model"
+# "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__define_fns = True
+__define_fns = False
 
 __datasetName = 'Middlebury'  # Middlebury / DTU, only set the dataset for reconstruction
 __GPUMemoryGB = 12  # how large is your GPU memory (GB)
@@ -71,7 +71,7 @@ if whatUWant is "reconstruct_model":
     __D_imgPatchEmbedding = 128
     __D_viewPairFeature = __D_imgPatchEmbedding * 2 + 1 + 1     # embedding / view pair angle / similarity
     __similNet_hidden_dim = 100
-    __pretrained_similNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/epoch33_acc_tr0.707_val0.791.model') # allDTU
+    __pretrained_similNet_model_path = os.path.join(__input_data_rootFld, 'SurfaceNet_models/epoch33_acc_tr0.707_val0.791.model') # allDTU
     __imgPatch_hw_size = 64
     __MEAN_IMAGE_BGR = np.asarray([103.939,  116.779,  123.68]).astype(np.float32)
     __triplet_alpha = 100
@@ -86,7 +86,7 @@ if whatUWant is "reconstruct_model":
     __use_pretrained_model = True
     if __use_pretrained_model:
         __layerList_2_loadModel = ["output_SurfaceNet_reshape","output_softmaxWeights"] ##output_fusionNet/fuse_op_reshape
-        __pretrained_SurfaceNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/2D_2_3D-19-0.918_0.951.model') # allDTU
+        __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, 'SurfaceNet_models/2D_2_3D-19-0.918_0.951.model') # allDTU
     __cube_Dcenter = {32:26, 64:52}[__cube_D] # only keep the center part of the cube because of boundary effect of the convNet.
 
     #-------------------
@@ -110,7 +110,7 @@ elif whatUWant is "train_model":
 
     __train_ON = True
     __val_ON = True
-    __use_pretrained_model = True
+    __use_pretrained_model = False
     __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_SimilarityNet = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
@@ -135,7 +135,7 @@ elif whatUWant is "train_model":
     __chunk_len_train = 6
     __N_viewPairs4train = 6
     __N_epochs = 1000
-    __viewList = range(1,10)  # range(1,50) # only use the first 49 views for training
+    __viewList = range(1,5)  # range(1,50) # only use the first 49 views for training
 
     # training function params:
     __lr = 5
@@ -148,14 +148,16 @@ elif whatUWant is "train_model":
 
     if __use_pretrained_model:
         __layerList_2_loadModel = ["output_SurfaceNet"]
-        if __train_SurfaceNet_wo_offSurfacePts or __train_SurfaceNet_with_offSurfacePts:
-            __pretrained_SurfaceNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model')
-        else:   # if ONLY train SurfaceNet + SimilarityNet
-            if __train_SurfaceNet_with_SimilarityNet:
-            __pretrained_SurfaceNet_model_file = os.path.join(__input_data_rootFld, 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model')
+        if __train_SurfaceNet_wo_offSurfacePts:     # continue to train w/o offSurfacePts
+            __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
+        elif __train_SurfaceNet_with_offSurfacePts:     # load model w/o off surface pts. /OR/ continue to train with offSurfacePts 
+            __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
+        elif __train_SurfaceNet_with_SimilarityNet:   # if ONLY train SurfaceNet + SimilarityNet
+            __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
 
+        __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
     else:  # Don't use pretrained model.
-        __pretrained_SurfaceNet_model_file = None
+        __pretrained_SurfaceNet_model_path = None
 
     #---------------------------
     # SurfaceNet + SimilarityNet
