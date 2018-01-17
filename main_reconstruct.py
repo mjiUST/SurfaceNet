@@ -118,7 +118,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
                 model_imgs=images_list, \
                 visualization_ON = False)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
 
-        _, _CVCs2_sub = CVC.preprocess_augmentation(None, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=False, crop_ON = False)
+        _CVCs2_sub = CVC.preprocess_augmentation(None, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=False, crop_ON = False)
         # TODO: eliminate the 'if' condition
         surfacePrediction, unfused_predictions = nViewPair_SurfaceNet_fn(_CVCs2_sub) if N_viewPairs4inference == 1 \
                                 else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])

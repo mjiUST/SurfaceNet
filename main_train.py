@@ -101,19 +101,20 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
                     cameraPOs = cameraPOs_np, \
                     models_img_list = images_list_train, \
                     cube_D = cube_param_train['cube_D'][0] \
-                    ) # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
+                    ) # ((N_cubeSub * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
             _gt_sub = dense_gt_train[selector]
             _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
             # TODO: eliminate the 'if' condition
-            surfacePrediction, unfused_predictions = nViewPair_SurfaceNet_fn(_CVCs2_sub) if N_viewPairs4inference == 1 \
-                                    else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
+            surfacePrediction, unfused_predictions = train_fn(_CVCs2_sub, _gt_sub)
+                                    # if params.__N_viewPairs4train == 1 \
+                                    # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
 
             if epoch%params.__lr_decay_per_N_epoch == 0:
                 lr_tensor.set_value(lr_tensor.get_value() * params.__lr_decay)        
                 print 'current updated lr_tensor = {}'.format(lr_tensor.get_value())
 
 
-            if params.__train_fusionNet:
+            if params.__train_SurfaceNet_with_SimilarityNet:
                 selected_viewPairs, similNet_features = perform_similNet(similNet_fn=similNet_fn, \
                         occupiedCubes_param = train_gt_param[selected], N_select_viewPairs = params.__N_viewPairs2train, models_img=models_img_train, \
                         view_set = params.__view_set, cameraPOs=cameraPOs, cameraTs=cameraTs, patch_r=32, batch_size=100, similNet_features_dim = params.__similNet_features_dim)
@@ -151,7 +152,7 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
                     selected = range(batch_val*params.__chunk_len_val,(batch_val+1)*params.__chunk_len_val)
                     val_gt_sub = val_gt[selected][:,None,...] ## convert to 5D
 
-                    if params.__train_fusionNet:
+                    if params.__train_SurfaceNet_with_SimilarityNet:
                         selected_viewPairs, similNet_features = perform_similNet(similNet_fn=similNet_fn, \
                                 occupiedCubes_param = val_gt_param[selected], N_select_viewPairs = params.__N_select_viewPairs2val, models_img=images_list, \
                                 view_set = params.__view_set, cameraPOs=cameraPOs, cameraTs=cameraTs, patch_r=32, batch_size=100, similNet_features_dim = params.__similNet_features_dim)

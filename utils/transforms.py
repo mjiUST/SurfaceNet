@@ -74,7 +74,6 @@ def coTransform_crop(input_np_tuple, output_shape = (-1, 8, 6), randomCrop = Tru
     # define the shared accessing slice
     _slc = [slice(None) for _ in range(nDim)]   # by default the slice will access all the content
     _input_np = input_np_tuple[0]
-    dt = _input_np.dtype
     _input_input_axisShape = _input_np.shape
     for _axis, _input_axisShape in enumerate(_input_input_axisShape):
         patch_axisShape = output_shape[_axis]
@@ -92,7 +91,7 @@ def coTransform_crop(input_np_tuple, output_shape = (-1, 8, 6), randomCrop = Tru
             _slc[_axis] = slice(center_pixel - patch_radius, center_pixel + patch_radius + odd_axisShape)
 
     
-    output_np_tuple = tuple([_input_np[_slc].astype(dt) for _input_np in input_np_tuple])
+    output_np_tuple = tuple([_input_np[_slc] for _input_np in input_np_tuple])
     return output_np_tuple
 
 

@@ -8,7 +8,7 @@ import scipy.io
 
 # "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__define_fns = False
+__define_fns = True
 
 __datasetName = 'Middlebury'  # Middlebury / DTU, only set the dataset for reconstruction
 __GPUMemoryGB = 12  # how large is your GPU memory (GB)

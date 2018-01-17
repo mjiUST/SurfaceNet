@@ -132,35 +132,53 @@ def data_augment_rand_crop(Xlist, crop_size):
     #[...,xxx], ... means 
     return [X[...,randx:randx+crop_size,randy:randy+crop_size,randz:randz+crop_size] for X in Xlist]
  
-def data_augment_crop(Xlist, crop_size, random_crop=True):
-    # random crop on ending 3 dimensions of any tensor with grid_D>=3
-    if random_crop == True:
-        randx,randy,randz = np.random.randint(0,grid_D-crop_size+1,size=(3,))
+
+
+def preprocess_augmentation(gt_sub, X_sub_rgb, mean_rgb, augment_ON = True, 
+        crop_ON = True, cube_D = 32, color2grey = False, return_cropped_rgb_np = False):
+    """
+    gt_sub: (N, D,D,D)
+    X_sub_rgb: (N, 6, D,D,D), [0-255] uint8
+    if gt_sub == None, only output processed X_np
+    """
+
+    X_sub_rgb = X_sub_rgb.astype(np.float32)
+    if color2grey:
+        X_sub = np.tensordot(X_sub_rgb.reshape(_shape[:1]+(2,3)+_shape[2:]),
+                             np.array([0.299,0.587,0.114]).astype(np.float32),
+                             axes=([2],[0])) # convert RGB to grey (N,6,D,D,D)==> (N,2,3,D,D,D)==> (N,2,D,D,D)
     else:
-        randx,randy,randz = ((grid_D-crop_size+1) / 2, ) * 3
-        #[...,xxx], ... means 
-    return [X[...,randx:randx+crop_size,randy:randy+crop_size,randz:randz+crop_size] if X is not None else None for X in Xlist]
+        X_sub = np.copy(X_sub_rgb) if return_cropped_rgb_np else X_sub_rgb  # if return rgb, use deep copy
 
 
-def preprocess_augmentation(gt_sub, X_sub, mean_rgb, augment_ON = True, crop_ON = True, cube_D = 32):
-    # X_sub /= 255.
-    X_sub = X_sub.astype(np.float32)
-    X_sub -= mean_rgb  ##.5
+    X_sub -= mean_rgb
+
+    if gt_sub is None:
+        input_np_tuple = (X_sub,) 
+    else:
+        gt_sub = gt_sub[:, None]    # (N,D,D,D) --> (N,1,D,D,D)
+        input_np_tuple = (gt_sub, X_sub) 
 
     if augment_ON:
         X_sub += np.random.randint(-30,30,1) # illumination argmentation
         X_sub += np.random.randint(-5,5,mean_rgb.shape) # color channel argmentation
-        gt_sub, X_sub = transforms.coTransform_flip( 
-                input_np_tuple = (gt_sub, X_sub),   # transform together 
+        output_np_tuple = transforms.coTransform_flip( 
+                input_np_tuple = input_np_tuple,   # transform together 
                 axes = (-3, -2, -1),    # axes need to be flipped
                 randomFlip = True)      # randomly select axes to flip
-        # gt_sub, X_sub = data_augment_rand_rotate(gt_sub, X_sub)
-        # gt_sub, X_sub = data_augment_rand_rotate(gt_sub, X_sub)
     if crop_ON:
-        gt_sub, X_sub = data_augment_crop([gt_sub, X_sub], crop_size = cube_D, random_crop=augment_ON) # smaller size cube       
-        # gt_sub, X_sub = coTransform_crop(input_np_tuple = (gt_sub, X_sub), 
-                # output_shape = output_shape, randomCrop = True):
-    return gt_sub, X_sub
+        if return_cropped_rgb_np:
+            input_np_tuple += (X_sub_rgb, )
+        output_np_tuple = transforms.coTransform_crop(
+                input_np_tuple,     # multiple numpy arrays
+                output_shape = (-1, -1) + (cube_D, ) * 3,  # (N, 6, D, D, D), -1 will keep the shape of the axis
+                randomCrop = augment_ON)
+
+    if not gt_sub is None:
+        output_np_tuple = list(output_np_tuple)
+        output_np_tuple[0] = output_np_tuple[0][:, 0]    # (N,1,D,D,D) --> (N,D,D,D)
+
+    return output_np_tuple
 
 
 
