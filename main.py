@@ -56,22 +56,27 @@ if __name__ == "__main__":
         SurfaceNet_model_path = params.__pretrained_SurfaceNet_model_path
         if params.__train_SurfaceNet_wo_offSurfacePts: # If False, need to specify the pretrained model, otherwise will trainfrom scratch
             # load all onSurface pts
-            kwargs.update(main_train.load_sparseSurfacePts(N_onSurfacePts_train = 1000, N_offSurfacePts_train = 0, 
-                    N_onSurfacePts_val = 100, N_offSurfacePts_val = 0, cube_D_loaded = params.__cube_D_loaded))
+            kwargs.update(main_train.load_sparseSurfacePts(
+                                    N_onSurfacePts_train = 1000, N_offSurfacePts_train = 0, 
+                                    N_onSurfacePts_val = 100, N_offSurfacePts_val = 0, cube_D_loaded = params.__cube_D_loaded))
 
-            if params.__define_fns:  # can turn off for debug
-                kwargs.update(main_train.load_dnn_fns(with_relativeImpt = False, SurfaceNet_model_path = SurfaceNet_model_path))
+            if params.__define_fns:  # can turn off to debug other part
+                kwargs.update(main_train.load_dnn_fns(
+                        with_relativeImpt = False, 
+                        SurfaceNet_model_path = SurfaceNet_model_path))
 
             SurfaceNet_model_path = main_train.train(**kwargs)
 
 
         if params.__train_SurfaceNet_with_offSurfacePts:
             # load some offSurface pts
-            kwargs.update(main_train.load_sparseSurfacePts(N_onSurfacePts_train = 1000, N_offSurfacePts_train = 500, 
-                    N_onSurfacePts_val = 100, N_offSurfacePts_val = 0))
+            kwargs.update(main_train.load_sparseSurfacePts(
+                                    N_onSurfacePts_train = 1000, N_offSurfacePts_train = 500, 
+                                    N_onSurfacePts_val = 100, N_offSurfacePts_val = 0))
 
-            if params.__define_fns:  # can turn off for debug
-                kwargs.update(main_train.load_dnn_fns(with_relativeImpt = False, 
+            if params.__define_fns:  # can turn off to debug other part
+                kwargs.update(main_train.load_dnn_fns(
+                        with_relativeImpt = False, 
                         SurfaceNet_model_path = SurfaceNet_model_path))
 
             SurfaceNet_model_path = main_train.train(**kwargs)
@@ -83,11 +88,13 @@ if __name__ == "__main__":
         
         if params.__train_SurfaceNet_with_SimilarityNet:
             # load some offSurface pts
-            kwargs.update(main_train.load_sparseSurfacePts(N_onSurfacePts_train = 1000, N_offSurfacePts_train = 500, 
-                    N_onSurfacePts_val = 100, N_offSurfacePts_val = 0))
+            kwargs.update(main_train.load_sparseSurfacePts(
+                                    N_onSurfacePts_train = 1000, N_offSurfacePts_train = 500, 
+                                    N_onSurfacePts_val = 100, N_offSurfacePts_val = 0))
 
             if params.__define_fns:  # can turn off for debug
-                kwargs.update(main_train.load_dnn_fns(with_relativeImpt = True, 
+                kwargs.update(main_train.load_dnn_fns(
+                        with_relativeImpt = True, 
                         SurfaceNet_model_path = SurfaceNet_model_path, 
                         SimilarityNet_model_path = SimilarityNet_model_path))
 

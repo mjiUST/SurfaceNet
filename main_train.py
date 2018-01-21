@@ -21,11 +21,11 @@ def load_dnn_fns(with_relativeImpt, SurfaceNet_model_path = None):
     """
 
     # define or load SurfaceNet
-    train_fn, val_fn = SurfaceNet.SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path = SurfaceNet_model_path)
+    train_fn, val_fn, lr_tensor = SurfaceNet.SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path = SurfaceNet_model_path)
 
     # TODO: define and load SimilarityNet
 
-    return {'train_fn': train_fn, 'val_fn': val_fn}
+    return {'train_fn': train_fn, 'val_fn': val_fn, 'lr_tensor': lr_tensor}
 
 
 def loadFixedVar_4training():
@@ -77,8 +77,14 @@ def load_sparseSurfacePts(N_onSurfacePts_train, N_offSurfacePts_train, N_onSurfa
 
 def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val, 
         cube_param_train, vxl_ijk_list_train, density_list_train, 
-        cube_param_val, vxl_ijk_list_val, density_list_val, cube_D_loaded,
+        cube_param_val, vxl_ijk_list_val, density_list_val, cube_D_loaded, lr_tensor = None, 
         train_fn = None, val_fn = None):
+    """
+
+    inputs
+    ----------
+    lr_tensor: used for weight decay
+    """
 
 
     #####################
@@ -87,9 +93,16 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
 
     N_viewPairs = params.__N_viewPairs4train
     N_cubes_train = cube_param_train.shape[0]
-    N_cubes_val = cube_param_val.shape[0]
     dense_gt_train = sparseCubes.sparse2dense(vxl_ijk_list_train, density_list_train, coords_shape = cube_D_loaded)
+    N_cubes_val = cube_param_val.shape[0]
+    dense_gt_val = sparseCubes.sparse2dense(vxl_ijk_list_val, density_list_val, coords_shape = cube_D_loaded)
+
     for epoch in range(1, params.__N_epochs):
+        # TODO: load partial models; partial views/lightings in another thread / process?
+        if epoch%params.__lr_decay_per_N_epoch == 0:
+            lr_tensor.set_value(lr_tensor.get_value() * params.__lr_decay)        
+            print 'current updated lr_tensor = {}'.format(lr_tensor.get_value())
+
         for _batch in range(N_cubes_train / params.__chunk_len_train):
             selector = random.sample(range(N_cubes_train), params.__chunk_len_train) # randomly select = shuffle the samples
             # generate CVC
@@ -109,9 +122,6 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
                                     # if params.__N_viewPairs4train == 1 \
                                     # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
 
-            if epoch%params.__lr_decay_per_N_epoch == 0:
-                lr_tensor.set_value(lr_tensor.get_value() * params.__lr_decay)        
-                print 'current updated lr_tensor = {}'.format(lr_tensor.get_value())
 
 
             if params.__train_SurfaceNet_with_SimilarityNet:
