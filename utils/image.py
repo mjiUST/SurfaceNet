@@ -118,17 +118,21 @@ def readImages_models_views_lights(datasetFolder, modelList, viewList, lightCond
     images4models_list = [None for _model in modelList]
     for _i, _model in enumerate(modelList):
         images4lights = None
-        N_lightConditions = 1 if random_lightCondition else len(lightConditions)
-        for _j, _light in enumerate(lightConditions):
-            if random_lightCondition:
+        if random_lightCondition:  # load model's view imgs with different light conditions
+            for _j, _view in enumerate(viewList):
                 _light = random.sample(lightConditions, 1)[0]
-            images4views = readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern_fn(_model, _light), \
-                    viewList = viewList, return_list = False) # (N_views, H, W, 3)
-            if _j == 0:
-                images4lights = np.zeros((len(viewList), N_lightConditions) + tuple(images4views.shape[-3:])).astype(images4views.dtype)
-            images4lights[:, _j] = images4views
-            if random_lightCondition: # only select one light condition
-                break
+                images4view = readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern_fn(_model, _light), \
+                        viewList = viewList[_j: _j+1], return_list = False) # (1, H, W, 3)
+                if _j == 0:
+                    images4lights = np.zeros((len(viewList), 1) + tuple(images4view.shape[-3:])).astype(images4view.dtype)
+                images4lights[_j] = images4view
+        else:   # load model's view images with the same light condition
+            for _j, _light in enumerate(lightConditions):
+                images4views = readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern_fn(_model, _light), \
+                        viewList = viewList, return_list = False) # (N_views, H, W, 3)
+                if _j == 0:
+                    images4lights = np.zeros((len(viewList), len(lightConditions)) + tuple(images4views.shape[-3:])).astype(images4views.dtype)
+                images4lights[:, _j] = images4views
         images4models_list[_i] = images4lights
     return images4models_list
 

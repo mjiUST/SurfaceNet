@@ -156,7 +156,7 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
             print 'current updated lr_tensor = {}'.format(lr_tensor.get_value())
 
         acc_train_batches, acc_guess_all0 = [], []
-        N_batches = 22  # N_cubes_train / params.__chunk_len_train
+        N_batches = N_cubes_train / params.__chunk_len_train
         for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(iterate_minibatches( \
                 N_batches = N_batches, 
                 batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param_train = cube_param_train,

@@ -136,7 +136,7 @@ elif whatUWant is "train_model":
     __cube_D_loaded = 50    # CVC size before random crop
     __chunk_len_train = 6
     __N_viewPairs4train = 6
-    __N_epoches = 100 # 1000
+    __N_epoches = 1000
     __viewList = range(1,5)  # range(1,50) # only use the first 49 views for training
 
     # training function params:
