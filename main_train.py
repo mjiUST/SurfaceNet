@@ -3,6 +3,8 @@ import sys
 import random
 import numpy as np
 import time
+from prefetch_generator import BackgroundGenerator, background  # https://github.com/justheuristic/prefetch_generator
+
 
 import params
 sys.path.append("./utils")
@@ -76,6 +78,7 @@ def load_sparseSurfacePts(N_onSurfacePts_train, N_offSurfacePts_train, N_onSurfa
             'cube_D_loaded': cube_D_loaded}
 
 
+@background(max_prefetch=3)
 def iterate_minibatches(N_batches, batchSize, N_viewPairs, cube_param_train, cameraPOs_np, images_list_train,
         dense_gt_train):
     """
@@ -132,9 +135,10 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
             print 'current updated lr_tensor = {}'.format(lr_tensor.get_value())
 
         acc_train_batches, acc_guess_all0 = [], []
-        for _batch, (_CVCs2_sub, _gt_sub) in enumerate(iterate_minibatches(N_batches = N_cubes_train / params.__chunk_len_train, 
+        for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(iterate_minibatches( \
+                N_batches = N_cubes_train / params.__chunk_len_train, 
                 batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param_train = cube_param_train,
-                cameraPOs_np = cameraPOs_np, images_list_train = images_list_train, dense_gt_train = dense_gt_train)):
+                cameraPOs_np = cameraPOs_np, images_list_train = images_list_train, dense_gt_train = dense_gt_train))):
 
             start_time_batch = time.time()
 
