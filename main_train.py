@@ -76,6 +76,32 @@ def load_sparseSurfacePts(N_onSurfacePts_train, N_offSurfacePts_train, N_onSurfa
             'cube_D_loaded': cube_D_loaded}
 
 
+def iterate_minibatches(N_batches, batchSize, N_viewPairs, cube_param_train, cameraPOs_np, images_list_train,
+        dense_gt_train):
+    """
+    fetch minibatches
+    """
+
+    N_cubes_train = cube_param_train.shape[0]
+    for _n in range(N_batches):
+        selector = random.sample(range(N_cubes_train), batchSize) # randomly select = shuffle the samples
+        # generate CVC
+        rand_viewPairs = np.random.randint(0, len(params.__viewList), (params.__chunk_len_train, N_viewPairs, 2)) # (params.__chunk_len_train, N_viewPair, 2) randomly select viewPairs for each cube
+        # dtype = uint8
+        _CVCs1_sub = CVC.gen_models_coloredCubes( \
+                viewPairs = rand_viewPairs,  \
+                cube_params = cube_param_train[selector], \
+                cameraPOs = cameraPOs_np, \
+                models_img_list = images_list_train, \
+                cube_D = cube_param_train['cube_D'][0] \
+                ) # ((N_cubeSub * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
+        _gt_sub = dense_gt_train[selector][:, None]  # (N, D,D,D) --> (N, 1, D,D,D)
+        _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
+
+
+        yield _CVCs2_sub, _gt_sub
+
+
 def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val, 
         cube_param_train, vxl_ijk_list_train, density_list_train, 
         cube_param_val, vxl_ijk_list_val, density_list_val, cube_D_loaded, lr_tensor = None, 
@@ -99,33 +125,25 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
     dense_gt_val = sparseCubes.sparse2dense(vxl_ijk_list_val, density_list_val, coords_shape = cube_D_loaded, dt = np.float32)
 
     for epoch in range(1, params.__N_epochs):
+        start_time_epoch = time.time()
         # TODO: load partial models; partial views/lightings in another thread / process?
         if epoch%params.__lr_decay_per_N_epoch == 0:
             lr_tensor.set_value(lr_tensor.get_value() * params.__lr_decay)        
             print 'current updated lr_tensor = {}'.format(lr_tensor.get_value())
 
         acc_train_batches, acc_guess_all0 = [], []
-        for _batch in range(N_cubes_train / params.__chunk_len_train):
+        for _batch, (_CVCs2_sub, _gt_sub) in enumerate(iterate_minibatches(N_batches = N_cubes_train / params.__chunk_len_train, 
+                batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param_train = cube_param_train,
+                cameraPOs_np = cameraPOs_np, images_list_train = images_list_train, dense_gt_train = dense_gt_train)):
+
             start_time_batch = time.time()
-            selector = random.sample(range(N_cubes_train), params.__chunk_len_train) # randomly select = shuffle the samples
-            # generate CVC
-            rand_viewPairs = np.random.randint(0, len(params.__viewList), (params.__chunk_len_train, N_viewPairs, 2)) # (params.__chunk_len_train, N_viewPair, 2) randomly select viewPairs for each cube
-            # dtype = uint8
-            _CVCs1_sub = CVC.gen_models_coloredCubes( \
-                    viewPairs = rand_viewPairs,  \
-                    cube_params = cube_param_train[selector], \
-                    cameraPOs = cameraPOs_np, \
-                    models_img_list = images_list_train, \
-                    cube_D = cube_param_train['cube_D'][0] \
-                    ) # ((N_cubeSub * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
-            _gt_sub = dense_gt_train[selector][:, None]  # (N, D,D,D) --> (N, 1, D,D,D)
-            _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
+
             # TODO: eliminate the 'if' condition
             # TODO: train_fn have different setting for different training procedures.
             _loss, acc, surfacePrediction = train_fn(_CVCs2_sub, _gt_sub)
                                     # if params.__N_viewPairs4train == 1 \
                                     # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
-            print("perform_similNet takes {}".format(time.time() - start_time_batch))
+            print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
 
 
             # if params.__train_SurfaceNet_with_SimilarityNet:
