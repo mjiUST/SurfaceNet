@@ -137,7 +137,7 @@ def data_augment_rand_crop(Xlist, crop_size):
 def preprocess_augmentation(gt_sub, X_sub_rgb, mean_rgb, augment_ON = True, 
         crop_ON = True, cube_D = 32, color2grey = False, return_cropped_rgb_np = False):
     """
-    gt_sub: (N, D,D,D)
+    gt_sub: (N, 1, D,D,D)
     X_sub_rgb: (N, 6, D,D,D), [0-255] uint8
     if gt_sub == None, only output processed X_np
     """
@@ -156,8 +156,7 @@ def preprocess_augmentation(gt_sub, X_sub_rgb, mean_rgb, augment_ON = True,
     if gt_sub is None:
         input_np_tuple = (X_sub,) 
     else:
-        gt_sub = gt_sub[:, None]    # (N,D,D,D) --> (N,1,D,D,D)
-        input_np_tuple = (gt_sub, X_sub) 
+        input_np_tuple = (gt_sub, X_sub)  #  ((N,1,D,D,D), (6*N, 3+3,D,D,D))
 
     if augment_ON:
         X_sub += np.random.randint(-30,30,1) # illumination argmentation
@@ -174,11 +173,7 @@ def preprocess_augmentation(gt_sub, X_sub_rgb, mean_rgb, augment_ON = True,
                 output_shape = (-1, -1) + (cube_D, ) * 3,  # (N, 6, D, D, D), -1 will keep the shape of the axis
                 randomCrop = augment_ON)
 
-    if not gt_sub is None:
-        output_np_tuple = list(output_np_tuple)
-        output_np_tuple[0] = output_np_tuple[0][:, 0]    # (N,1,D,D,D) --> (N,D,D,D)
-
-    return output_np_tuple
+    return list(output_np_tuple)
 
 
 

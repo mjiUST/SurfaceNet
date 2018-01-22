@@ -78,7 +78,7 @@ def dense2sparse(prediction, rgb, param, viewPair, min_prob = 0.5, rayPool_thres
     return nonempty_cube_indx, vxl_ijk_list, prediction_list, rgb_list, rayPooling_votes_list, param_new
 
 
-def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0):
+def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0, dt = np.float64):
     """
     given sparse representation of the coordes (ij / ijk) of occupied elements (pixel / voxel / ...)
         N_dims = coords_list[0].shape[1]
@@ -116,6 +116,7 @@ def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0
     elif (not isinstance(coords_shape, tuple)) and (not isinstance(coords_shape, list)):
         coords_shape = (coords_shape, ) * N_dims
     dense_output = np.ones((N_samples, ) + coords_shape) * default_value    
+    dense_output = dense_output.astype(dt)
 
     for _index, _coords in enumerate(coords_list):
         dense_output[_index][[_ for _ in _coords.T.astype(np.int)]] = value_list[_index]
