@@ -2,6 +2,7 @@ import scipy.misc
 import scipy.ndimage
 import os
 import math
+import random
 import numpy as np
 
 
@@ -102,21 +103,32 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
             print('loaded img ' + imgPath)
         return imgs_np
 
-def readImages_models_views_lights(datasetFolder, modelList, viewList, lightConditions, imgNamePattern_fn):
+def readImages_models_views_lights(datasetFolder, modelList, viewList, lightConditions, imgNamePattern_fn, random_lightCondition = False):
     """
     Assume the images taken for the same model have the same shape.
     Return list loop through models with each element = np.array (N_views, N_lights, h, w, 3/1)
+    
+    inputs:
+    ------- 
+    random_lightCondition: if True: select one image with random light condition
+            if False: select the images from all the listed light conditions
+
     """
 
     images4models_list = [None for _model in modelList]
     for _i, _model in enumerate(modelList):
         images4lights = None
+        N_lightConditions = 1 if random_lightCondition else len(lightConditions)
         for _j, _light in enumerate(lightConditions):
+            if random_lightCondition:
+                _light = random.sample(lightConditions, 1)[0]
             images4views = readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern_fn(_model, _light), \
                     viewList = viewList, return_list = False) # (N_views, H, W, 3)
             if _j == 0:
-                images4lights = np.zeros((len(viewList), len(lightConditions)) + tuple(images4views.shape[-3:])).astype(images4views.dtype)
+                images4lights = np.zeros((len(viewList), N_lightConditions) + tuple(images4views.shape[-3:])).astype(images4views.dtype)
             images4lights[:, _j] = images4views
+            if random_lightCondition: # only select one light condition
+                break
         images4models_list[_i] = images4lights
     return images4models_list
 

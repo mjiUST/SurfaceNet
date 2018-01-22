@@ -426,11 +426,11 @@ def load_sparseCubes(filePath):
 
 
 def __debug():
-    # N_batchs=75
+    # N_batches=75
     # tmp = 8
-    # batch_range = range(10, 15) # (13,16) / (0,N_batchs)
+    # batch_range = range(10, 15) # (13,16) / (0,N_batches)
     # dataFolder='/home/mengqi/dataset/MVS/lasagne/save_reconstruction_result/saved_prediction_rgb_params_modelBB/model17-3viewPairs-resol0.400-strideRatio0.500'
-    # file_path_lambda = lambda i: os.path.join(dataFolder,'batch-{}_{}.npz'.format(i,N_batchs))
+    # file_path_lambda = lambda i: os.path.join(dataFolder,'batch-{}_{}.npz'.format(i,N_batches))
     # outputs = load_dense_as_sparse(cube_Dcenter=26, rayPool_thresh=0, min_prob=0.5,files=[file_path_lambda(_b) for _b in batch_range])
     # npz_file = '/home/mengqi/tmp/{}.npz'.format(tmp)
     # save_sparseCubes(npz_file, *outputs)

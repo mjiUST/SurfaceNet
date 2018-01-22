@@ -78,13 +78,8 @@ def load_sparseSurfacePts(N_onSurfacePts_train, N_offSurfacePts_train, N_onSurfa
             'cube_D_loaded': cube_D_loaded}
 
 
-@background(max_prefetch=3)
-def iterate_minibatches(N_batches, batchSize, N_viewPairs, cube_param_train, cameraPOs_np, images_list_train,
-        dense_gt_train):
-    """
-    fetch minibatches
-    """
-
+# @background(max_prefetch=2)
+def iterate_CVCs(N_batches, cube_param_train, batchSize, N_viewPairs, cameraPOs_np, images_list_train):
     N_cubes_train = cube_param_train.shape[0]
     for _n in range(N_batches):
         selector = random.sample(range(N_cubes_train), batchSize) # randomly select = shuffle the samples
@@ -98,11 +93,35 @@ def iterate_minibatches(N_batches, batchSize, N_viewPairs, cube_param_train, cam
                 models_img_list = images_list_train, \
                 cube_D = cube_param_train['cube_D'][0] \
                 ) # ((N_cubeSub * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
+        yield selector, _CVCs1_sub
+
+
+@background(max_prefetch=2)
+def iterate_minibatches(N_batches, batchSize, N_viewPairs, cube_param_train, cameraPOs_np, images_list_train,
+        dense_gt_train):
+    """
+    fetch minibatches
+    """
+
+    for selector, _CVCs1_sub in iterate_CVCs(N_batches, cube_param_train, batchSize, 
+        N_viewPairs, cameraPOs_np, images_list_train):
+
         _gt_sub = dense_gt_train[selector][:, None]  # (N, D,D,D) --> (N, 1, D,D,D)
         _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
 
-
         yield _CVCs2_sub, _gt_sub
+
+
+@background(max_prefetch=2)
+def iterate_random_lightConditions(N_epoches, modelList):
+    for epoch in range(N_epoches):
+        images_list_train = image.readImages_models_views_lights(datasetFolder = params.__datasetFolder, 
+                modelList = params.__modelList_train,  # test: can put comment
+                viewList = params.__viewList, 
+                lightConditions = params.__random_lightConditions, 
+                imgNamePattern_fn = params.imgNamePattern_fn,
+                random_lightCondition = True)
+        yield images_list_train
 
 
 def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val, 
@@ -127,16 +146,19 @@ def train(cameraPOs_np, cameraTs_np, images_list_train, images_list_val,
     N_cubes_val = cube_param_val.shape[0]
     dense_gt_val = sparseCubes.sparse2dense(vxl_ijk_list_val, density_list_val, coords_shape = cube_D_loaded, dt = np.float32)
 
-    for epoch in range(1, params.__N_epochs):
-        start_time_epoch = time.time()
+    start_time_epoch = time.time()
+    for epoch, images_list_train in enumerate(BackgroundGenerator(iterate_random_lightConditions( \
+            N_epoches = params.__N_epoches, 
+            modelList = params.__modelList_train))):
         # TODO: load partial models; partial views/lightings in another thread / process?
-        if epoch%params.__lr_decay_per_N_epoch == 0:
+        if (epoch%params.__lr_decay_per_N_epoch == 0) and (epoch > 1):
             lr_tensor.set_value(lr_tensor.get_value() * params.__lr_decay)        
             print 'current updated lr_tensor = {}'.format(lr_tensor.get_value())
 
         acc_train_batches, acc_guess_all0 = [], []
+        N_batches = 22  # N_cubes_train / params.__chunk_len_train
         for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(iterate_minibatches( \
-                N_batches = N_cubes_train / params.__chunk_len_train, 
+                N_batches = N_batches, 
                 batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param_train = cube_param_train,
                 cameraPOs_np = cameraPOs_np, images_list_train = images_list_train, dense_gt_train = dense_gt_train))):
 
