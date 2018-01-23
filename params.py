@@ -137,7 +137,7 @@ elif whatUWant is "train_model":
     __chunk_len_train = 6
     __chunk_len_val = 6
     __N_viewPairs4train = 6
-    __N_epoches = 6
+    __N_epoches = 10
     __viewList = range(1,5)  # range(1,50) # only use the first 49 views for training
 
     # training function params:

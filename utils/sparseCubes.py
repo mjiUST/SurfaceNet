@@ -92,21 +92,24 @@ def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0
 
     ---------
     example:
-    >>> coords_list = [np.zeros((0, 2)), np.array([[0, 1], [3, 6]]), np.array([[5,5], [2,3], [8, 8]])]
-    >>> value_list = [np.zeros((0, )), np.array([0.9, 0]), np.array([0.0, 1, 2])]
+    >>> coords_list = [np.zeros((0, 2)), np.array([[0, 1], [3, 6]]), np.array([[5,5], [2,3], [8, 8]]), []]
+    >>> value_list = [np.zeros((0, )), np.array([0.9, 0]), np.array([0.0, 1, 2]), []]
     >>> dense_output = sparse2dense(coords_list, value_list, coords_shape = (10, 12))
     >>> print(dense_output.shape)
-    (3, 10, 12)
+    (4, 10, 12)
     >>> print(dense_output[[0, 1, 1], [0, 0, 3], [2, 1, 6]])
     [ 0.   0.9  0. ]
     >>> dense_output = sparse2dense(coords_list, value_list, coords_shape = None)
     >>> print(dense_output.shape)
-    (3, 9, 9)
+    (4, 9, 9)
     >>> np.allclose(sparse2dense(coords_list, value_list, coords_shape = 9), sparse2dense(coords_list, value_list, coords_shape = (9, 9)))
+    True
+    >>> dense_output[-1].sum() == 0
     True
     """
 
     N_samples = len(coords_list)
+    coords_list = [np.zeros((0, 2)) if _ == [] else _ for _ in coords_list]     # replace [] to empty array
     N_dims = coords_list[0].shape[1]
 
     # calculate output shape
@@ -119,8 +122,10 @@ def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0
     dense_output = dense_output.astype(dt)
 
     for _index, _coords in enumerate(coords_list):
-        dense_output[_index][[_ for _ in _coords.T.astype(np.int)]] = value_list[_index]
+        if not (_coords.size == 0):     # corresponds to empty cube
+            dense_output[_index][[_ for _ in _coords.T.astype(np.int)]] = value_list[_index]
     return dense_output
+
 
 
 def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, min_prob = 0.5, rayPool_thresh = 0, \
