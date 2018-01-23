@@ -43,31 +43,6 @@ def loadFixedVar_4training():
     return {'cameraPOs_np': cameraPOs_np, 'cameraTs_np': cameraTs_np}
 
 
-def load_sparseSurfacePts(N_onSurfacePts_train, N_offSurfacePts_train, N_onSurfacePts_val, N_offSurfacePts_val, cube_D_loaded):
-    """
-    load candidate on/off surface cubes
-    """
-
-    cube_param_train, vxl_ijk_list_train, density_list_train = prepareData.load_sparse_surfacePts_asnp( \
-            modelIndexList = params.__modelList_train, \
-            modelFile_pattern = os.path.join(params.__datasetFolder, params.__modelFile_pattern), \
-            npzFile_pattern = os.path.join(params.__input_data_rootFld, params.__npzFile_pattern), \
-            N_pts_onOffSurface = [N_onSurfacePts_train, N_offSurfacePts_train], cube_D = cube_D_loaded, inputDataType = 'pcd', \
-            cube_resolutionList = [0.8, 0.4, 0.2], density_dtype = 'float' if params.__soft_label else 'bool')
-
-    cube_param_val, vxl_ijk_list_val, density_list_val = prepareData.load_sparse_surfacePts_asnp( \
-            modelIndexList = params.__modelList_val, \
-            modelFile_pattern = os.path.join(params.__datasetFolder, params.__modelFile_pattern), \
-            npzFile_pattern = os.path.join(params.__input_data_rootFld, params.__npzFile_pattern), \
-            N_pts_onOffSurface = [N_onSurfacePts_val, N_offSurfacePts_val], cube_D = cube_D_loaded, inputDataType = 'pcd', \
-            cube_resolutionList = [0.8, 0.4, 0.2], density_dtype = 'float' if params.__soft_label else 'bool')
-
-    return {'cube_param_train': cube_param_train, 'vxl_ijk_list_train': vxl_ijk_list_train, 
-            'density_list_train': density_list_train, 'cube_param_val': cube_param_val, 
-            'vxl_ijk_list_val': vxl_ijk_list_val, 'density_list_val': density_list_val, 
-            'cube_D_loaded': cube_D_loaded}
-
-
 @background(max_prefetch=2)
 def iterate_minibatches(N_batches, batchSize, N_viewPairs, cube_param, cameraPOs_np, images_list,
         dense_gt):
@@ -106,6 +81,11 @@ def iterate_models_and_lightConditions(N_epoches, N_randomModels, modelList, lig
         else: randomly load few model at the same time (used for training)
     If random_lightCondition: load random light condition for each view of each model
         else: load specific light condition for validation
+
+
+    outputs:
+    --------
+    modelList_2load, record_lastLightCondition4models: try not to print log in other threads, otherwise it is hard for file comparison.
     """
 
     N_epoches = N_epoches if random_model else len(modelList)  
@@ -115,20 +95,22 @@ def iterate_models_and_lightConditions(N_epoches, N_randomModels, modelList, lig
         else:   # load only one model in each loop to save GPU time
             modelList_2load = modelList[epoch: epoch+1]
         cube_param, vxl_ijk_list, density_list = prepareData.load_sparse_surfacePts_asnp( \
-                modelIndexList = modelList_2load, \
-                modelFile_pattern = os.path.join(params.__datasetFolder, params.__modelFile_pattern), \
-                npzFile_pattern = os.path.join(params.__input_data_rootFld, params.__npzFile_pattern), \
-                N_pts_onOffSurface = N_on_off_surfacePts, cube_D = cube_D_loaded, inputDataType = 'pcd', \
+                modelIndexList = modelList_2load,
+                modelFile_pattern = os.path.join(params.__datasetFolder, params.__modelFile_pattern),
+                npzFile_pattern = os.path.join(params.__input_data_rootFld, params.__npzFile_pattern),
+                N_pts_onOffSurface = N_on_off_surfacePts, cube_D = cube_D_loaded, inputDataType = 'pcd',
+                silentLog = params.__silentLog,
                 cube_resolutionList = [0.8, 0.4, 0.2], density_dtype = 'float' if params.__soft_label else 'bool')
         dense_gt = sparseCubes.sparse2dense(vxl_ijk_list, density_list, coords_shape = cube_D_loaded, dt = np.float32)
 
-        images_list = image.readImages_models_views_lights(datasetFolder = params.__datasetFolder, 
+        images_list, record_lastLightCondition4models = image.readImages_models_views_lights(datasetFolder = params.__datasetFolder, 
                 modelList = modelList,
                 viewList = params.__viewList, 
                 lightConditions = lightConditions, 
                 imgNamePattern_fn = params.imgNamePattern_fn,
+                silentLog = params.__silentLog,
                 random_lightCondition = random_lightCondition)
-        yield images_list, cube_param, dense_gt
+        yield images_list, cube_param, dense_gt, modelList_2load, record_lastLightCondition4models
 
 
 def train(cameraPOs_np, cameraTs_np, lr_tensor = None, 
@@ -149,7 +131,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None,
     N_viewPairs = params.__N_viewPairs4train
 
     start_time_epoch = time.time()
-    for epoch, (images_list_train, cube_param_train, dense_gt_train) in \
+    for epoch, (images_list_train, cube_param_train, dense_gt_train, modelList_2load, record_lastLightCondition4models) in \
             enumerate(BackgroundGenerator(iterate_models_and_lightConditions( \
                     N_epoches = params.__N_epoches, 
                     N_on_off_surfacePts = N_on_off_surfacePts_train,
@@ -159,7 +141,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None,
                     random_lightCondition = True,
                     lightConditions = params.__random_lightConditions,
                     modelList = params.__modelList_train))):
-        # TODO: load partial models; partial views/lightings in another thread / process?
+
         N_cubes_train = dense_gt_train.shape[0]
         if (epoch%params.__lr_decay_per_N_epoch == 0) and (epoch > 1):
             lr_tensor.set_value(lr_tensor.get_value() * params.__lr_decay)        
@@ -174,12 +156,11 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None,
 
             start_time_batch = time.time()
 
-            # TODO: eliminate the 'if' condition
             # TODO: train_fn have different setting for different training procedures.
             _loss, acc, surfacePrediction = train_fn(_CVCs2_sub, _gt_sub)
                                     # if params.__N_viewPairs4train == 1 \
                                     # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
-            print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
+            ## print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
 
 
             # if params.__train_SurfaceNet_with_SimilarityNet:
@@ -205,13 +186,18 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None,
 
             acc_train_batches.append(float(acc))
             acc_guess_all0.append(1-float(_gt_sub.sum())/_gt_sub.size)
-            print("Epoch %d, _batch %d: Loss %g, acc %g, acc_guess_all0 %g" % \
-                                          (epoch, _batch, np.sum(_loss), np.asarray(acc_train_batches).mean(), np.asarray(acc_guess_all0).mean()))
+            if (_batch % 100) == 0:
+                print("Epoch %d, _batch %d: Loss %g, acc %g, acc_guess_all0 %g" % \
+                                              (epoch, _batch, np.sum(_loss), np.asarray(acc_train_batches).mean(), np.asarray(acc_guess_all0).mean()))
+                # move these print log from other threads to the main thread
+                print("N_on_off_surfacePts_train: {}; ModelList_2load: {}; nRecord_lastLightCondition4models: {}".format( \
+                        N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))      
 
 
         if params.__val_ON and ((epoch % 1) == 0):    # every N epoch
             print "starting validation..."    
-            for epoch, (images_list_val, cube_param_val, dense_gt_val) in \
+            acc_val_batches = []
+            for _modelIndex, (images_list_val, cube_param_val, dense_gt_val, modelList_2load, record_lastLightCondition4models) in \
                     enumerate(BackgroundGenerator(iterate_models_and_lightConditions( \
                             N_epoches = params.__N_epoches, 
                             N_on_off_surfacePts = N_on_off_surfacePts_val,
@@ -221,9 +207,9 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None,
                             random_lightCondition = False,
                             lightConditions = params.__lightConditions,
                             modelList = params.__modelList_val))):
+
                 N_cubes_val = dense_gt_val.shape[0]
-                acc_val_batches = []
-                N_batches = N_cubes_val/params.__chunk_len_val
+                N_batches = 3  # N_cubes_val/params.__chunk_len_val
                 for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(iterate_minibatches( \
                     N_batches = N_batches, 
                     batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
@@ -261,8 +247,12 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None,
                     #     tmp_5D[:,:,X_2[0].squeeze()==0]=0 
                     #     if not params.__train_ON:
                     #         visualize_N_densities_pcl([X_2[0]*params.__surfPredict_scale4visual, result*params.__surfPredict_scale4visual, tmp_5D[0,3:], tmp_5D[0,:3], X_1[0,3:], X_1[0,:3]])
-                acc_val = np.asarray(acc_val_batches).mean()
-                print("val_acc %g" %(acc_val))
+            acc_val = np.asarray(acc_val_batches).mean()
+            print("Epoch %d, val_acc %g" %(epoch, acc_val))
+            # move these print log from other threads to the main thread
+            print("N_on_off_surfacePts_train: {}; ModelList_2load: {}; nRecord_lastLightCondition4models: {}".format( \
+                    N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))      
+            print("\n")
 
             # if (epoch % params.__every_N_epoch_2saveModel) == 0:
             #     save_entire_model(net[params.__layer_2_save_model], '2D_2_3D-{}-{:0.3}_{:0.3}.model'.format(epoch, np.asarray(acc_train_batches).mean(), acc_val))             

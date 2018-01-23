@@ -6,7 +6,9 @@ import utils
 import pointCloud
 
 
-def __generate_or_load_surfacePts__(modelIndex, npzFile_pattern, modelFile_pattern = None, N_pts_onOffSurface = [100, 100], cube_D = 50, inputDataType = 'pcd', cube_resolutionList = [0.8, 0.4, 0.2], density_dtype = 'float'):
+def __generate_or_load_surfacePts__(modelIndex, npzFile_pattern, modelFile_pattern = None, N_pts_onOffSurface = [100, 100], 
+        cube_D = 50, inputDataType = 'pcd', cube_resolutionList = [0.8, 0.4, 0.2], 
+        density_dtype = 'float', silentLog = False):
     """
     Given model index and folder to load the voxel informations. 
     If not exist, generate and save.
@@ -21,22 +23,24 @@ def __generate_or_load_surfacePts__(modelIndex, npzFile_pattern, modelFile_patte
 
     npzFile = npzFile_pattern.replace('#', "{:03}-{}on_{}off".format(modelIndex, N_pts_onOffSurface[0], N_pts_onOffSurface[1]))
     if os.path.exists(npzFile):  # load from the saved file
-        cube_param, vxl_ijk_list, density_list = pointCloud.read_saved_surfacePts(npzFile)
+        cube_param, vxl_ijk_list, density_list = pointCloud.read_saved_surfacePts(npzFile, silentLog = silentLog)
     else:   # if was not saved, generate new and save
         modelFile = modelFile_pattern.replace("#", "{:03}".format(modelIndex))
         cube_param, vxl_ijk_list, density_list = pointCloud.save_surfacePts_2file(inputFile = modelFile, \
-                outputFile = npzFile, \
-                N_pts_onSurface = N_pts_onOffSurface[0], \
-                N_pts_offSurface = N_pts_onOffSurface[1], \
-                cube_D = cube_D, \
-                cube_resolutionList = cube_resolutionList, \
-                inputDataType = inputDataType, \
+                outputFile = npzFile,
+                N_pts_onSurface = N_pts_onOffSurface[0],
+                N_pts_offSurface = N_pts_onOffSurface[1],
+                cube_D = cube_D,
+                silentLog = silentLog,
+                cube_resolutionList = cube_resolutionList,
+                inputDataType = inputDataType,
                 density_dtype = density_dtype)
     return cube_param, vxl_ijk_list, density_list
 
 
 def load_sparse_surfacePts_asnp(modelIndexList, modelFile_pattern, npzFile_pattern, \
-        N_pts_onOffSurface = [100, 100], cube_D = 50, inputDataType = 'pcd', \
+        N_pts_onOffSurface = [100, 100], cube_D = 50, inputDataType = 'pcd',
+        silentLog = False,
         cube_resolutionList = [0.8, 0.4, 0.2], density_dtype = 'float'):
     """
     load model
@@ -58,11 +62,12 @@ def load_sparse_surfacePts_asnp(modelIndexList, modelFile_pattern, npzFile_patte
     for _ith_model, _modelIndex in enumerate(modelIndexList):
         # cube params: min_xyz / resolution / cube_D
         _cube_param, _vxl_ijk_list, _density_list = __generate_or_load_surfacePts__(_modelIndex, npzFile_pattern = npzFile_pattern, \
-                modelFile_pattern = modelFile_pattern, \
-                N_pts_onOffSurface = N_pts_onOffSurface, \
-                cube_D = cube_D, \
-                inputDataType = inputDataType, \
-                cube_resolutionList = cube_resolutionList, \
+                modelFile_pattern = modelFile_pattern,
+                N_pts_onOffSurface = N_pts_onOffSurface,
+                cube_D = cube_D,
+                silentLog = silentLog,
+                inputDataType = inputDataType,
+                cube_resolutionList = cube_resolutionList,
                 density_dtype = density_dtype)
 
         # cube params: min_xyz / resolution / cube_D / modelIndex
