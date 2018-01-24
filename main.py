@@ -72,7 +72,8 @@ if __name__ == "__main__":
                         with_relativeImpt = False, 
                         SurfaceNet_model_path = SurfaceNet_model_path))
 
-            SurfaceNet_model_path = main_train.train(**kwargs)
+            SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [1000, 1000], 
+                    N_on_off_surfacePts_val = [100, 100], **kwargs)
 
 
         #######################################
@@ -85,7 +86,7 @@ if __name__ == "__main__":
                 kwargs.update(main_train.load_dnn_fns(
                         with_relativeImpt = True, 
                         SurfaceNet_model_path = SurfaceNet_model_path, 
-                        SimilarityNet_model_path = SimilarityNet_model_path))
+                        SimilarityNet_model_path = params.__pretrained_similNet_model_path))
 
             main_train.train(**kwargs)
 

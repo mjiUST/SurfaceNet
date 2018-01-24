@@ -1,11 +1,11 @@
 import os
 import numpy as np
+np.random.seed(201711)
 from scipy.spatial import cKDTree
 from plyfile import PlyData, PlyElement
 
 import utils
 
-np.random.seed(201711)
 
 def __extract_vxls_ijk__(kdTree, cubeCenter, cube_D, resolution, density_dtype = 'uint'):
     """

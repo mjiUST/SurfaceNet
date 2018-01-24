@@ -3,7 +3,9 @@ import scipy.ndimage
 import os
 import math
 import random
+random.seed(201801)
 import numpy as np
+np.random.seed(201801)
 
 
 

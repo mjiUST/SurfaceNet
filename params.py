@@ -118,12 +118,12 @@ elif whatUWant is "train_model":
 
 
     __datasetName = 'DTU'  # DTU
-    __modelList_train = [2, 6] #, 7, 8, 14, 16, 18, 19, 20, 22, 30, 31, 36, 39, 41, 42, 44, \
-            # 45, 46, 47, 50, 51, 52, 53, 55, 57, 58, 60, 61, 63, 64, 65, 68, 69, 70, 71, 72, \
-            # 74, 76, 83, 84, 85, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, \
-            # 101, 102, 103, 104, 105, 107, 108, 109, 111, 112, 113, 115, 116, 119, 120, \
-            # 121, 122, 123, 124, 125, 126, 127, 128]
-    __modelList_val = [3, 5] #, 17, 21, 28, 35, 37, 38, 40, 43, 56, 59, 66, 67, 82, 86, 106, 117]     # validation
+    __modelList_train = [2, 6, 7, 8, 14, 16, 18, 19, 20, 22, 30, 31, 36, 39, 41, 42, 44, \
+            45, 46, 47, 50, 51, 52, 53, 55, 57, 58, 60, 61, 63, 64, 65, 68, 69, 70, 71, 72, \
+            74, 76, 83, 84, 85, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, \
+            101, 102, 103, 104, 105, 107, 108, 109, 111, 112, 113, 115, 116, 119, 120, \
+            121, 122, 123, 124, 125, 126, 127, 128]
+    __modelList_val = [3, 5, 17, 21, 28, 35, 37, 38, 40, 43, 56, 59, 66, 67, 82, 86, 106, 117]     # validation
     __lightConditions = ['3_r5000']  # ['{}_r5000'.format(_) for _ in range(7)] + ['max']   # hard to load all the imgs to memory
     __random_lightConditions = ['{}_r5000'.format(_) for _ in range(7)] + ['max']   # hard to load all the imgs to memory
     imgNamePattern_fn = lambda _model, _light: "Rectified/scan{}/rect_#_{}.png".format(_model, _light)    # replace # to {:03} 
@@ -138,7 +138,7 @@ elif whatUWant is "train_model":
     __chunk_len_val = 6
     __N_viewPairs4train = 6
     __N_epoches = 10
-    __viewList = range(1,5)  # range(1,50) # only use the first 49 views for training
+    __viewList = range(1,50)  # only use the first 49 views for training
 
     # training function params:
     __lr = 5
@@ -159,6 +159,9 @@ elif whatUWant is "train_model":
             __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
 
         __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
+
+        # SimilarityNet model
+        __pretrained_similNet_model_path = os.path.join(__input_data_rootFld, 'SurfaceNet_models/epoch33_acc_tr0.707_val0.791.model') # allDTU
     else:  # Don't use pretrained model.
         __pretrained_SurfaceNet_model_path = None
 
@@ -169,6 +172,7 @@ elif whatUWant is "train_model":
     # 2 * 128D/image patch + 1 * (dis)similarity + 1 * angle<v1,v2>
     __similNet_features_dim = 128*2+1+1
     __similNet_hidden_dim = 100 
+    __imgPatch_hw_size = 64
 
 
 
