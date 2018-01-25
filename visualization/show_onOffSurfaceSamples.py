@@ -61,7 +61,7 @@ def save_sparseCubes_2ply(vxl_ijk_list, rgb_list, \
 
 
 def show_onOffSurfaceSamples(cube_param, vxl_ijk_list, density_list, save_result_fld, \
-        cubesRatio_2showBorder = 0.02, rgb_list = None, printDetails = False):
+        cubesRatio_2showBorder = 0.02, rgb_list = None, printDetails = False, onlyShow_cubeEdges = False):
     """
     In order to check the cube range of a loaded '.npz', add some voxels at the border of selected/random cubes.
 
@@ -88,9 +88,10 @@ def show_onOffSurfaceSamples(cube_param, vxl_ijk_list, density_list, save_result
         N_appendedVxls = cubes_6edges.shape[0]
 
         N_vxls = len(vxl_ijk_list[_cube])
-        if N_vxls == 0:
+        if (N_vxls == 0) or onlyShow_cubeEdges:
             vxl_ijk_list[_cube] = np.zeros((0, 3)).astype(np.uint32)
-        rgb_list[_cube] = (np.ones((N_vxls, 3)) * np.random.randint(50,255, (1, 1))).astype(np.uint8)  # rainbow
+        N_surfacePts = 0 if onlyShow_cubeEdges else N_vxls
+        rgb_list[_cube] = (np.ones((N_surfacePts, 3)) * np.random.randint(50,255, (1, 1))).astype(np.uint8)  # rainbow
 
         if _cube in np.where(cubes_2showBorder)[0]:  # show the edges of this cube
             if N_vxls == 0:
@@ -104,7 +105,7 @@ def show_onOffSurfaceSamples(cube_param, vxl_ijk_list, density_list, save_result
 
     utils.mkdirs_ifNotExist(save_result_fld)
     save_sparseCubes_2ply(vxl_ijk_list = vxl_ijk_list, rgb_list = rgb_list, cube_param = cube_param, \
-            ply_filePath= os.path.join(save_result_fld, 'showCubesBorder.ply'), normal_list=None) 
+            ply_filePath= os.path.join(save_result_fld, 'showCubesBorder_{}_surfacePts.ply'.format("wo" if onlyShow_cubeEdges else "with")), normal_list=None) 
     return 0
 
 
@@ -113,8 +114,8 @@ if __name__ == '__main__':
 
     # load the saved file from the func: pointCloud.save_surfacePts_2file
     # used to varify the saved data (cropped cubes) for training
-    save_npz_file_path  = '/home/mengqi/temp/prepare/model009.npz' 
+    save_npz_file_path  = '/home/mengqi/temp/prepare/model007-100on_100off.npz' 
     cube_param, vxl_ijk_list, density_list = pointCloud.read_saved_surfacePts(save_npz_file_path)
 
-    show_onOffSurfaceSamples(cube_param, vxl_ijk_list, density_list, save_result_fld = os.path.dirname(save_npz_file_path), cubesRatio_2showBorder = 0.1, printDetails = True)
+    show_onOffSurfaceSamples(cube_param, vxl_ijk_list, density_list, save_result_fld = os.path.dirname(save_npz_file_path), cubesRatio_2showBorder = 0.1, printDetails = True, onlyShow_cubeEdges = True)
 
