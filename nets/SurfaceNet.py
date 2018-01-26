@@ -322,7 +322,7 @@ def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path):
         with open(pretrained_model_path) as f:
             data = pickle.load(f)
         lasagne.layers.set_all_param_values(layers_2_load_model, data)
-    return train_fn, val_fn, lr_tensor
+    return net, train_fn, val_fn, lr_tensor
 
 
 def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPairFeature, num_hidden_units, \

@@ -1,4 +1,5 @@
 import numpy as np
+np.random.seed(201801)
 import math
 import os
 import itertools

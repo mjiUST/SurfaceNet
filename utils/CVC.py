@@ -1,6 +1,7 @@
 # CVC: Colored Voxel Cube
 import copy
 import numpy as np
+np.random.seed(201801)
 
 import transforms
 

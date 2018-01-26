@@ -1,11 +1,11 @@
 import os
 import numpy as np
+np.random.seed(201711)
 from scipy.spatial import cKDTree
 from plyfile import PlyData, PlyElement
 
 import utils
 
-np.random.seed(201711)
 
 def __extract_vxls_ijk__(kdTree, cubeCenter, cube_D, resolution, density_dtype = 'uint'):
     """
@@ -135,7 +135,8 @@ def sample_pts_from_kdTree(kdTree, N_pts, distance_min, distance_max):
 
 
 def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurface, \
-        cube_D, cube_resolutionList, inputDataType = 'pcd', density_dtype = 'float'):
+        cube_D, cube_resolutionList, inputDataType = 'pcd', density_dtype = 'float', 
+        silentLog = False):
     """
     read a 3D model, record the surface pts information in the on/off-surface cubes, save to lists (like util/sparseCubes.py)
 
@@ -201,12 +202,13 @@ def save_surfacePts_2file(inputFile, outputFile, N_pts_onSurface, N_pts_offSurfa
     utils.mkdirs_ifNotExist(os.path.dirname(outputFile))
     with open(outputFile, 'wb') as f:
         np.savez_compressed(f, cube_param = cube_param, vxl_ijk_list = vxl_ijk_list, density_list = density_list)
-    print("Saved surface pts to file: {}".format(outputFile))
+    if not silentLog:
+        print("Saved surface pts to file: {}".format(outputFile))
 
     return cube_param, vxl_ijk_list, density_list
 
 
-def read_saved_surfacePts(inputFile):
+def read_saved_surfacePts(inputFile, silentLog = False):
     """
     read saved on/off-surface pts
     Return cube_param, vxl_ijk_list, density_list
@@ -215,7 +217,8 @@ def read_saved_surfacePts(inputFile):
     with open(inputFile, 'r') as f:
         npz = np.load(f)
         cube_param, vxl_ijk_list, density_list = npz['cube_param'], npz['vxl_ijk_list'], npz['density_list']
-    print("Loaded surface pts from file: {}".format(inputFile))
+    if not silentLog:
+        print("Loaded surface pts from file: {}".format(inputFile))
     return cube_param, vxl_ijk_list, density_list
 
 

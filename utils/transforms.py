@@ -1,5 +1,7 @@
-import numpy as np
 import random
+random.seed(201801)
+import numpy as np
+np.random.seed(201801)
 
 def coTransform_flip(input_np_tuple, axes = (-2, -1), randomFlip = True):
     """
