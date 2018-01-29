@@ -43,7 +43,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     cube_D = params.__cube_D
     # from now on, view indexes will be like [0,1,...]
     images_list = image.readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern, viewList = viewList, return_list = True)     
-    cameraPOs_np = camera.readCameraPOs_as_np(datasetFolder = datasetFolder, datasetName = params.__datasetName, poseNamePattern = poseNamePattern, model = model, viewList = viewList)  # (N_views, 3, 4) np
+    cameraPOs_np = camera.readCameraPOs_as_np(datasetFolder = datasetFolder, datasetName = params.__datasetName, poseNamePattern = poseNamePattern, viewList = viewList)  # (N_views, 3, 4) np
     cameraTs_np = camera.cameraPs2Ts(cameraPOs = cameraPOs_np)  # (N_views, 3) np
     cubes_param_np, cube_D_mm = scene.initializeCubes(resol = resol, cube_D = cube_D, cube_Dcenter = params.__cube_Dcenter, cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)  # (N_cubes,N_params), scalar. the scene is divided into multiple overlapping cubes, each of which has several attributes, such as param_np["xyz"/"ijk"/"resol"]
     img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner(projection_M = cameraPOs_np, cube_xyz_min = cubes_param_np['xyz'], cube_D_mm = cube_D_mm, return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes, 8)
@@ -115,10 +115,9 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
                 resol = cubes_param_np['resol'][_batch],  \
                 colorize_cube_D = cube_D,\
                 cameraPOs=cameraPOs_np, \
-                model_imgs=images_list, \
-                visualization_ON = False)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
+                model_imgs=images_list)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D
 
-        _CVCs2_sub = CVC.preprocess_augmentation(None, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=False, crop_ON = False)
+        _CVCs2_sub, = CVC.preprocess_augmentation(None, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=False, crop_ON = False)
         # TODO: eliminate the 'if' condition
         surfacePrediction, unfused_predictions = nViewPair_SurfaceNet_fn(_CVCs2_sub) if N_viewPairs4inference == 1 \
                                 else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])

@@ -163,7 +163,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         modelList = params.__modelList_train), max_prefetch=1)):
 
             N_cubes_train = dense_gt_train.shape[0]
-            N_batches_train = 3 if params.__debug else N_cubes_train / params.__chunk_len_train
+            N_batches_train = N_cubes_train / params.__chunk_len_train
             print("Training iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
                     _iter, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))
             for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
@@ -228,7 +228,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                                 modelList = params.__modelList_val), max_prefetch=1)):
 
                     N_cubes_val = dense_gt_val.shape[0]
-                    N_batches_val = 3 if params.__debug else N_cubes_val/params.__chunk_len_val
+                    N_batches_val = N_cubes_val/params.__chunk_len_val
                     for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
                         N_batches = N_batches_val, 
                         batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,

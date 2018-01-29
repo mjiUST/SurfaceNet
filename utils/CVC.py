@@ -158,6 +158,7 @@ def preprocess_augmentation(gt_sub, X_sub_rgb, mean_rgb, augment_ON = True,
         input_np_tuple = (X_sub,) 
     else:
         input_np_tuple = (gt_sub, X_sub)  #  ((N,1,D,D,D), (6*N, 3+3,D,D,D))
+    output_np_tuple = input_np_tuple # if don't augment and don't crop, direct return
 
     if augment_ON:
         X_sub += np.random.randint(-30,30,1) # illumination argmentation
