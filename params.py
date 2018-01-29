@@ -157,13 +157,15 @@ elif whatUWant is "train_model":
     __layerList_2_loadModel = ["output_SurfaceNet"]
     if __use_pretrained_model:
         if __train_SurfaceNet_wo_offSurfacePts:     # continue to train w/o offSurfacePts
-            __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
+            __pretrained_SurfaceNet_model_file = 'backup_models/stage0-epoch0_56-0.661_0.731.model'
+            # __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
         elif __train_SurfaceNet_with_offSurfacePts:     # load model w/o off surface pts. /OR/ continue to train with offSurfacePts 
             __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
         elif __train_SurfaceNet_with_SimilarityNet:   # if ONLY train SurfaceNet + SimilarityNet
             __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
 
-        __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
+        __pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
+        # __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
 
         # SimilarityNet model
         __pretrained_similNet_model_path = os.path.join(__input_data_rootFld, 'SurfaceNet_models/epoch33_acc_tr0.707_val0.791.model') # allDTU

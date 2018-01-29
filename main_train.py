@@ -1,6 +1,7 @@
 import os
 import sys
 import copy
+import math
 import random
 random.seed(201801)
 import numpy as np
@@ -177,6 +178,8 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                                         # if params.__N_viewPairs4train == 1 \
                                         # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
                 ## print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
+                if math.isnan(_loss.mean()):
+                    print('Loss is nan!')
 
 
                 # if params.__train_SurfaceNet_with_SimilarityNet:

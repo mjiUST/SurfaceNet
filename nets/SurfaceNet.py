@@ -71,7 +71,7 @@ def __1viewPair_SurfaceNet__(input_var_5D, input_var_shape = (None,3*2)+(64,)*3,
     net["fuse_side_outputs"] = ConcatLayer([net["side_op1_deconv"],net["side_op2_deconv"],net["side_op3_deconv"],net["side_op4_deconv"]], axis=1)
     net["merge_conv"] = batch_norm(Conv3DDNNLayer(net["fuse_side_outputs"],100,(3,3,3),nonlinearity=conv_nonlinearity,untie_biases=False,pad='same'))
     net["merge_conv"] = batch_norm(Conv3DDNNLayer(net["merge_conv"],100,(3,3,3),nonlinearity=conv_nonlinearity,untie_biases=False,pad='same'))
-    net["merge_conv3"] = batch_norm(Conv3DDNNLayer(net["merge_conv"],1,(1,1,1),nonlinearity=nonlinearity_sigmoid,untie_biases=False,pad='same')) # linear output for regression
+    net["merge_conv3"] = batch_norm(Conv3DDNNLayer(net["merge_conv"],1,(1,1,1),nonlinearity=None,untie_biases=False,pad='same')) # linear output for regression
     net["output_SurfaceNet"] = net["merge_conv3"]
     return net
 
@@ -190,9 +190,24 @@ def __updates__(net, cost, layer_range_tuple_2_update, default_lr, update_algori
     
 
 
+def __weighted_mult_binary_sigmoidCrossentropy__(prediction, target, w_for_1):
+    """
+    numerical stable version of crossEntropy[ sigmoid( prediction ) ]. 
+    At the same time, the computation is simpler than sigmoid(entropy)
+
+    log[sigmoid(p)] = - log[1 + e^(-x)]
+    log[1 - sigmoid(p)] = - log[1 + e^x]
+    """
+    logSigmoid = -T.log(1.0 + T.exp(-prediction))
+    log_1minus_Sigmoid = -T.log(1.0 + T.exp(prediction))
+    return -(w_for_1 * target * logSigmoid + (1.0-w_for_1)*(1.0 - target) * log_1minus_Sigmoid)
 
 
 def __weighted_mult_binary_crossentropy__(prediction, target, w_for_1):
+    """
+    numerical unstable if follow sigmoid layer! 
+    In that case, refer to __weighted_mult_binary_sigmoidCrossentropy__
+    """
     return -(w_for_1 * target * T.log(prediction) + (1.0-w_for_1)*(1.0 - target) * T.log(1.0 - prediction))
 
 def __weighted_MSE__(prediction, target, w_for_1):
@@ -269,7 +284,7 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
                 else None
 
         #loss = __weighted_MSE__(pred_fuse, output_var, w_for_1 = 0.98) \
-        loss = __weighted_mult_binary_crossentropy__(pred_fuse, output_var, w_for_1 = 0.96) \
+        loss = __weighted_mult_binary_sigmoidCrossentropy__(pred_fuse, output_var, w_for_1 = 0.96) \
             + regularize_layer_params(net["output_fusionNet"],l2) * 1e-4 \
 
         aggregated_loss = lasagne.objectives.aggregate(loss)
