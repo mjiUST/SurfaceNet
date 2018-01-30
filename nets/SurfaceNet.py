@@ -1,6 +1,6 @@
 import lasagne
 from lasagne.layers.dnn import Conv3DDNNLayer, Pool3DDNNLayer
-from lasagne.layers import ElemwiseSumLayer, ReshapeLayer, SliceLayer, ConcatLayer, batch_norm, DenseLayer, NonlinearityLayer, PadLayer
+from lasagne.layers import ElemwiseSumLayer, ReshapeLayer, SliceLayer, ConcatLayer, batch_norm, DenseLayer, NonlinearityLayer, PadLayer, NonlinearityLayer
 from lasagne.regularization import regularize_layer_params, l2
 from layers import ChannelPool_max, ChannelPool_argmaxWeight, ChannelPool_weightedAverage, Bilinear_3DInterpolation, DilatedConv3DLayer
 import theano.tensor as T
@@ -71,8 +71,12 @@ def __1viewPair_SurfaceNet__(input_var_5D, input_var_shape = (None,3*2)+(64,)*3,
     net["fuse_side_outputs"] = ConcatLayer([net["side_op1_deconv"],net["side_op2_deconv"],net["side_op3_deconv"],net["side_op4_deconv"]], axis=1)
     net["merge_conv"] = batch_norm(Conv3DDNNLayer(net["fuse_side_outputs"],100,(3,3,3),nonlinearity=conv_nonlinearity,untie_biases=False,pad='same'))
     net["merge_conv"] = batch_norm(Conv3DDNNLayer(net["merge_conv"],100,(3,3,3),nonlinearity=conv_nonlinearity,untie_biases=False,pad='same'))
-    net["merge_conv3"] = batch_norm(Conv3DDNNLayer(net["merge_conv"],1,(1,1,1),nonlinearity=nonlinearity_sigmoid,untie_biases=False,pad='same')) # linear output for regression
-    net["output_SurfaceNet"] = net["merge_conv3"]
+    net["merge_conv3_linear"] = batch_norm(Conv3DDNNLayer(net["merge_conv"],1,(1,1,1), nonlinearity=None,untie_biases=False,pad='same')) # linear output for regression
+    net["output_SurfaceNet_linear"] = net["merge_conv3_linear"]
+    net["output_SurfaceNet_sigmoid"] = NonlinearityLayer(net["output_SurfaceNet_linear"], nonlinearity = nonlinearity_sigmoid)
+    # net["merge_conv3_linear"] = batch_norm(Conv3DDNNLayer(net["merge_conv"],1,(1,1,1),nonlinearity=None,untie_biases=False,pad='same')) # linear output for regression
+    # net["output_SurfaceNet_linear"] = net["merge_conv3_linear"]
+    # net["sigmoid_output_SurfaceNet"] = NonlinearityLayer(net["merge_conv3_linear"], nonlinearity=nonlinearity_sigmoid)
     return net
 
 
@@ -115,7 +119,7 @@ def __weightedAverage_net__(input_var, feature_input_var, input_cube_size, N_vie
     >> input_var = tensor5D('X')
     >> similFeature_var = T.matrix('similFeature')
     >> net = n.__weightedAverage_net__(input_var, similFeature_var,32,3,128,100,True)
-    >> param_volum = len(lasagne.layers.get_all_params(net['output_SurfaceNet']))
+    >> param_volum = len(lasagne.layers.get_all_params(net['output_SurfaceNet_linear']))
     >> param_simil = len(lasagne.layers.get_all_params(net['feature_softmax']))
     >> param_fuse = len(lasagne.layers.get_all_params(net['output_fusionNet']))
     >> param_fuse == param_volum + param_simil
@@ -123,21 +127,23 @@ def __weightedAverage_net__(input_var, feature_input_var, input_cube_size, N_vie
 
     net = __1viewPair_SurfaceNet__(input_var_5D = input_var, input_var_shape = (None,3*2)+(input_cube_size,)*3, \
             N_predicts_perGroup = N_viewPairs4inference)
-    net["output_SurfaceNet_reshape"] = ReshapeLayer(net["output_SurfaceNet"], shape=(-1, N_viewPairs4inference)+(input_cube_size,)*3)
+    net["output_SurfaceNet_reshape_linear"] = ReshapeLayer(net["output_SurfaceNet_linear"], shape=(-1, N_viewPairs4inference)+(input_cube_size,)*3)
     if with_relativeImpt:
         softmaxWeights_net = __relativeWeight_net__(feature_input_var, D_viewPairFeature,\
                 num_hidden_units, N_viewPairs4inference)
         net.update(softmaxWeights_net)
         #output_softmaxWeights_var= lasagne.layers.get_output(net["output_softmaxWeights"])
-        ###output_SurfaceNet_channelPool = ChannelPool_argmaxWeight(output_SurfaceNet_reshape, average_weight_tensor)
-        net["output_SurfaceNet_channelPool"] = ChannelPool_weightedAverage([net["output_SurfaceNet_reshape"], net["output_softmaxWeights"]])
+        ###output_SurfaceNet_channelPool_linear = ChannelPool_argmaxWeight(output_SurfaceNet_reshape, average_weight_tensor)
+        net["output_SurfaceNet_channelPool_linear"] = ChannelPool_weightedAverage([net["output_SurfaceNet_reshape_linear"], net["output_softmaxWeights"]])
     
     else:
-        net["output_SurfaceNet_channelPool"] = ChannelPool_max(net["output_SurfaceNet_reshape"])
+        net["output_SurfaceNet_channelPool_linear"] = ChannelPool_max(net["output_SurfaceNet_reshape_linear"])
 
  
 
-    net["output_fusionNet"] = net["output_SurfaceNet_channelPool"] ##output_SurfaceNet_reshape_channelPool / conv1_3
+    net["output_fusionNet_linear"] = net["output_SurfaceNet_channelPool_linear"] ##output_SurfaceNet_reshape_channelPool / conv1_3
+    nonlinearity_sigmoid = lasagne.nonlinearities.sigmoid
+    net["output_fusionNet_sigmoid"] = NonlinearityLayer(net["output_fusionNet_linear"], nonlinearity = nonlinearity_sigmoid) ##output_SurfaceNet_reshape_channelPool / conv1_3
     # print "output shape:", net["output_fusionNet"].output_shape
     return net
 
@@ -190,9 +196,24 @@ def __updates__(net, cost, layer_range_tuple_2_update, default_lr, update_algori
     
 
 
+def __weighted_mult_binary_sigmoidCrossentropy__(prediction, target, w_for_1):
+    """
+    numerical stable version of crossEntropy[ sigmoid( prediction ) ]. 
+    At the same time, the computation is simpler than sigmoid(entropy)
+
+    log[sigmoid(p)] = - log[1 + e^(-x)]
+    log[1 - sigmoid(p)] = - log[1 + e^x]
+    """
+    logSigmoid = -T.log(1.0 + T.exp(-prediction))
+    log_1minus_Sigmoid = -T.log(1.0 + T.exp(prediction))
+    return -(w_for_1 * target * logSigmoid + (1.0-w_for_1)*(1.0 - target) * log_1minus_Sigmoid)
 
 
 def __weighted_mult_binary_crossentropy__(prediction, target, w_for_1):
+    """
+    numerical unstable if follow sigmoid layer! 
+    In that case, refer to __weighted_mult_binary_sigmoidCrossentropy__
+    """
     return -(w_for_1 * target * T.log(prediction) + (1.0-w_for_1)*(1.0 - target) * T.log(1.0 - prediction))
 
 def __weighted_MSE__(prediction, target, w_for_1):
@@ -251,26 +272,27 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
     net = __weightedAverage_net__(input_var, similFeature_var, input_cube_size, N_viewPairs,\
             D_viewPairFeature, num_hidden_units, with_relativeImpt)
     if return_val_fn:
-        pred_fuse_val = lasagne.layers.get_output(net["output_fusionNet"], deterministic=True)
-        # accuracy_val = lasagne.objectives.binary_accuracy(pred_fuse_val, output_var) # in case soft_label
-        accuracy_val = __weighted_accuracy__(pred_fuse_val, output_var)
+        predVal_linear = lasagne.layers.get_output(net["output_fusionNet_sigmoid"], deterministic=True)
+        # accuracy_val = lasagne.objectives.binary_accuracy(predVal_linear, output_var) # in case soft_label
+        accuracy_val = __weighted_accuracy__(predVal_linear, output_var)
 
-        # fuseNet_val_fn = theano.function([input_var, output_var], [accuracy_val,pred_fuse_val])
+        # fuseNet_val_fn = theano.function([input_var, output_var], [accuracy_val,predVal_linear])
 
         val_fn_input_var_list = [input_var, similFeature_var, output_var] if with_relativeImpt\
                 else [input_var, output_var]
-        val_fn_output_var_list = [accuracy_val,pred_fuse_val] if with_relativeImpt\
-                else [accuracy_val,pred_fuse_val]
+        val_fn_output_var_list = [accuracy_val,predVal_linear] if with_relativeImpt\
+                else [accuracy_val,predVal_linear]
         val_fn = theano.function(val_fn_input_var_list, val_fn_output_var_list)
     
     if return_train_fn:
-        pred_fuse = lasagne.layers.get_output(net["output_fusionNet"])
+        predTrain_linear = lasagne.layers.get_output(net["output_fusionNet_linear"])
+        predTrain_sigmoid = lasagne.layers.get_output(net["output_fusionNet_sigmoid"])
         output_softmaxWeights_var= lasagne.layers.get_output(net["output_softmaxWeights"]) if with_relativeImpt \
                 else None
 
-        #loss = __weighted_MSE__(pred_fuse, output_var, w_for_1 = 0.98) \
-        loss = __weighted_mult_binary_crossentropy__(pred_fuse, output_var, w_for_1 = 0.96) \
-            + regularize_layer_params(net["output_fusionNet"],l2) * 1e-4 \
+        #loss = __weighted_MSE__(predTrain_linear, output_var, w_for_1 = 0.98) \
+        loss = __weighted_mult_binary_sigmoidCrossentropy__(predTrain_linear, output_var, w_for_1 = 0.96) \
+            + regularize_layer_params(net["output_fusionNet_linear"],l2) * 1e-4 \
 
         aggregated_loss = lasagne.objectives.aggregate(loss)
 
@@ -280,17 +302,17 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
             updates = __updates__(net = net, cost = aggregated_loss, layer_range_tuple_2_update = trainable_layerRange, \
                     default_lr=default_lr, update_algorithm='nesterov_momentum') 
         else:
-            params_trainable = lasagne.layers.get_all_params(net["output_fusionNet"], trainable=True)
+            params_trainable = lasagne.layers.get_all_params(net["output_fusionNet_linear"], trainable=True)
             updates = lasagne.updates.nesterov_momentum(aggregated_loss, params_trainable, learning_rate=params.__lr)   
 
 
-        # accuracy = lasagne.objectives.binary_accuracy(pred_fuse, output_var) # in case soft_label
-        accuracy = __weighted_accuracy__(pred_fuse, output_var)
+        # accuracy = lasagne.objectives.binary_accuracy(predTrain_linear, output_var) # in case soft_label
+        accuracy = __weighted_accuracy__(predTrain_sigmoid, output_var)
 
         train_fn_input_var_list = [input_var, similFeature_var, output_var] if with_relativeImpt \
                 else [input_var, output_var]
-        train_fn_output_var_list = [loss,accuracy, pred_fuse, output_softmaxWeights_var] if with_relativeImpt \
-                else [loss,accuracy, pred_fuse]
+        train_fn_output_var_list = [loss,accuracy, predTrain_sigmoid, output_softmaxWeights_var] if with_relativeImpt \
+                else [loss,accuracy, predTrain_sigmoid]
 
         train_fn = theano.function(train_fn_input_var_list, train_fn_output_var_list, updates=updates)
     return net, train_fn, val_fn
@@ -328,6 +350,9 @@ def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path):
 def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPairFeature, num_hidden_units, \
             with_relativeImpt=True, with_groundTruth = True, return_unfused_predict = False):
     """
+    ## In ICCV version, the sigmoid is performed before fusion (weighted average)
+    ## In order to implement a numerical stable sigmoid+crossEntropy, 
+    ##      let the final layer become a linear layer and compute the sigmoid+crossEntropy at the same time.
     this function difines 2 net_fns, which could be used in the test phase:
     1. viewPair_relativeImpt_fn: calculate softmax weight given feature input
     2. nViewPair_SurfaceNet_fn: ouput a prediction based on the colored cube pairs with(out) weighted average. (based on whether the softmax weight is available)
@@ -354,6 +379,8 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
     output_var = tensor5D('Y')
     similFeature_var = T.matrix('similFeature')
 
+    nonlinearity_sigmoid = lasagne.nonlinearities.sigmoid
+
     # This tensor is only used to reshape from (N_group*N_sample_perGroup,1) to (N_group, N_sample_perGroup)
     # so will not be used when N_viewPairs4inference == 1
     n_samples_perGroup_var = T.iscalar('n_samples_perGroup') # when setted as arg of theano.function, use the 'n_samples_perGroup' to pass value 
@@ -374,17 +401,20 @@ def __SurfaceNet_fn_inference__(N_viewPairs4inference, input_cube_size, D_viewPa
             similWeight_var = T.matrix('similWeight')
             
             similWeight_input_layer = lasagne.layers.InputLayer((None,N_viewPairs4inference), similWeight_var)
-            net["output_SurfaceNet_channelPool_givenWeight"] = ChannelPool_weightedAverage([net["output_SurfaceNet_reshape"], similWeight_input_layer])
-            net["output_fusionNet"] = net["output_SurfaceNet_channelPool_givenWeight"]
+            net["output_SurfaceNet_channelPool_givenWeight"] = ChannelPool_weightedAverage([net["output_SurfaceNet_reshape_linear"], similWeight_input_layer])
+            net["output_fusionNet_linear"] = net["output_SurfaceNet_channelPool_givenWeight"]
         else:
-            net["output_SurfaceNet_channelPool"] = ChannelPool_max(net["output_SurfaceNet_reshape"])
-            net["output_fusionNet"] = net["output_SurfaceNet_channelPool"]
+            net["output_SurfaceNet_channelPool_linear"] = ChannelPool_max(net["output_SurfaceNet_reshape_linear"])
+            net["output_fusionNet_linear"] = net["output_SurfaceNet_channelPool_linear"]
 
-        output_fusionNet_var, unfused_predictions_var = lasagne.layers.get_output([net["output_fusionNet"], net["output_SurfaceNet_reshape"]], \
+
+        net["output_fusionNet_sigmoid"] = NonlinearityLayer(net["output_fusionNet_linear"], nonlinearity = nonlinearity_sigmoid)
+        net["output_SurfaceNet_reshape_sigmoid"] = NonlinearityLayer(net["output_SurfaceNet_reshape_linear"], nonlinearity = nonlinearity_sigmoid)
+        output_fusionNet_var, unfused_predictions_var = lasagne.layers.get_output([net["output_fusionNet_sigmoid"], net["output_SurfaceNet_reshape_sigmoid"]], \
                 deterministic=True)
     elif N_viewPairs4inference == 1: # if only use 1 colored Cube pair, we don't need weight any more.
         with_relativeImpt = False # IMPORTANT, in this case, the vars related to weights will be ignored
-        output_fusionNet_var = lasagne.layers.get_output(net["output_SurfaceNet"], deterministic=True) 
+        output_fusionNet_var = lasagne.layers.get_output(net["output_SurfaceNet_sigmoid"], deterministic=True) 
         unfused_predictions_var = output_fusionNet_var
 
     if with_groundTruth:
