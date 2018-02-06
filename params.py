@@ -113,9 +113,9 @@ if whatUWant is "reconstruct_model":
 
 elif whatUWant is "train_model":
 
-    __train_ON = False  # will have error / stop after validation
+    __train_ON = True  # will have error / stop after validation
     __val_ON = True
-    __use_pretrained_model = True
+    __use_pretrained_model = False
     __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
     __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch

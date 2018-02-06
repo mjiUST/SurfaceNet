@@ -55,7 +55,7 @@ def loadFixedVar_4training():
 
 
 def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images_list,
-        dense_gt, N_batches = None):
+        dense_gt, N_batches = None, augment_ON = True):
     """
     fetch minibatches
     If N_batches is None: loop through each cube param onece. (for validation / testing)
@@ -69,9 +69,9 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
         selectors_np = utils.gen_batch_npBool(N_all = N_cubes, batch_size = batchSize)
 
     for selector in selectors_np:
-        N_selector = selector.sum()
+        N_selector = batchSize if N_batches else selector.sum()
         # generate CVC
-        rand_viewPairs = np.random.randint(0, len(params.__viewList), (batchSize, N_viewPairs, 2)) # (params.__chunk_len, N_viewPair, 2) randomly select viewPairs for each cube
+        rand_viewPairs = np.random.randint(0, len(params.__viewList), (N_selector, N_viewPairs, 2)) # (params.__chunk_len, N_viewPair, 2) randomly select viewPairs for each cube
         # dtype = uint8
         _CVCs1_sub = CVC.gen_models_coloredCubes( \
                 viewPairs = rand_viewPairs,  \
@@ -81,7 +81,7 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
                 cube_D = cube_param['cube_D'][0] \
                 ) # ((N_selector * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
         _gt_sub = dense_gt[selector][:, None]  # (N, D,D,D) --> (N, 1, D,D,D)
-        _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
+        _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=augment_ON, crop_ON = True, cube_D = params.__cube_D)
 
         _nRGB_CVCs_sub = _CVCs1_sub.reshape((N_selector, N_viewPairs, 2, 3) + _CVCs1_sub.shape[-3:])
         _nRGB_CVCs_sub = _nRGB_CVCs_sub.mean(axis = 2) # (N_cubes, N_viewPairs, 3, D,D,D)
@@ -184,7 +184,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                     start_time_batch = time.time()
 
                     # TODO: train_fn have different setting for different training procedures.
-                    train_loss, train_acc, train_predict = train_fn(_CVCs2_sub, _gt_sub)
+                    train_loss, acc, train_predict = train_fn(_CVCs2_sub, _gt_sub)
                                             # if params.__N_viewPairs4train == 1 \
                                             # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
                     ## print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
@@ -214,7 +214,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                     #     
 
                     loss_batches.append(np.sum(train_loss))
-                    acc_train_batches.append(float(train_acc))
+                    acc_train_batches.append(float(acc))
                     acc_guess_all0.append(1-float(_gt_sub.sum())/_gt_sub.size)
                     if (_batch % (N_batches_train / 3 + 1)) == 0:     # only print results of few batches
                         train_acc = np.asarray(acc_train_batches).mean()
@@ -243,6 +243,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                     N_cubes_val = dense_gt_val.shape[0]
                     for _batch, (selector, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
                             N_batches = None,  # test all the samples rather than random selection
+                            augment_ON = False,
                             batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
                             cameraPOs_np = cameraPOs_np, images_list = images_list_val, dense_gt = dense_gt_val), max_prefetch=1)):
                         val_acc, val_predict = val_fn(_CVCs2_sub, _gt_sub)
