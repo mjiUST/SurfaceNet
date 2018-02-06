@@ -46,7 +46,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     cameraPOs_np = camera.readCameraPOs_as_np(datasetFolder = datasetFolder, datasetName = params.__datasetName, poseNamePattern = poseNamePattern, viewList = viewList)  # (N_views, 3, 4) np
     cameraTs_np = camera.cameraPs2Ts(cameraPOs = cameraPOs_np)  # (N_views, 3) np
     cubes_param_np, cube_D_mm = scene.initializeCubes(resol = resol, cube_D = cube_D, cube_Dcenter = params.__cube_Dcenter, cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)  # (N_cubes,N_params), scalar. the scene is divided into multiple overlapping cubes, each of which has several attributes, such as param_np["xyz"/"ijk"/"resol"]
-    img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner(projection_M = cameraPOs_np, cube_xyz_min = cubes_param_np['xyz'], cube_D_mm = cube_D_mm, return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes, 8)
+    img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner(projection_M = cameraPOs_np, cube_xyz_min = cubes_param_np['min_xyz'], cube_D_mm = cube_D_mm, return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes, 8)
     N_views, N_cubes = img_h_cubesCorner.shape[:2]
     D_embedding = params.__D_imgPatchEmbedding 
 
@@ -85,7 +85,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
             e_viewPairs = patches_embedding,  \
             d_viewPairs = dissimilarity,  \
             validCubes = validCubes,  \
-            cubeCenters_xyz = cubes_param_np['xyz'] + cube_D_mm / 2., \
+            cubeCenters_xyz = cubes_param_np['min_xyz'] + cube_D_mm / 2., \
             viewPair_relativeImpt_fn = viewPair_relativeImpt_fn,  \
             batchSize = params.__batchSize_viewPair_w,  \
             N_viewPairs4inference = N_viewPairs4inference, \
@@ -111,8 +111,8 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
         # TODO: in the test process, the generated coloredCubes could be the exact size we want. Don't need to crop in the preprocess method. 
         _CVCs1_sub = CVC.gen_coloredCubes( \
                 selected_viewPairs = viewPairs4Reconstr[_batch[validCubes]],  \
-                min_xyz = cubes_param_np['xyz'][_batch],  \
-                resol = cubes_param_np['resol'][_batch],  \
+                min_xyz = cubes_param_np['min_xyz'][_batch],  \
+                resol = cubes_param_np['resolution'][_batch],  \
                 colorize_cube_D = cube_D,\
                 cameraPOs=cameraPOs_np, \
                 model_imgs=images_list)   # ((N_cubeSub * N_viewPairs4inference, 3 * 2) + (D_CVC,) * 3) 5D

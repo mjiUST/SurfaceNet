@@ -54,15 +54,22 @@ def loadFixedVar_4training():
     return {'cameraPOs_np': cameraPOs_np, 'cameraTs_np': cameraTs_np}
 
 
-def prepare_minibatches(N_batches, batchSize, N_viewPairs, cube_param, cameraPOs_np, images_list,
-        dense_gt):
+def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images_list,
+        dense_gt, N_batches = None):
     """
     fetch minibatches
+    If N_batches is None: loop through each cube param onece. (for validation / testing)
+        else: randomly select cubes in each batch. (for training)
     """
 
     N_cubes = cube_param.shape[0]
-    for _n in range(N_batches):
-        selector = random.sample(range(N_cubes), batchSize) # randomly select = shuffle the samples
+    if N_batches is not None: # train: randomly select
+        selectors_np = np.random.randint(0, N_cubes, (N_batches, batchSize))
+    else: # validation / test: select in order
+        selectors_np = utils.gen_batch_npBool(N_all = N_cubes, batch_size = batchSize)
+
+    for selector in selectors_np:
+        N_selector = selector.sum()
         # generate CVC
         rand_viewPairs = np.random.randint(0, len(params.__viewList), (batchSize, N_viewPairs, 2)) # (params.__chunk_len, N_viewPair, 2) randomly select viewPairs for each cube
         # dtype = uint8
@@ -72,12 +79,14 @@ def prepare_minibatches(N_batches, batchSize, N_viewPairs, cube_param, cameraPOs
                 cameraPOs = cameraPOs_np, \
                 models_img_list = images_list, \
                 cube_D = cube_param['cube_D'][0] \
-                ) # ((N_cubeSub * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
+                ) # ((N_selector * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
         _gt_sub = dense_gt[selector][:, None]  # (N, D,D,D) --> (N, 1, D,D,D)
         _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=True, crop_ON = True, cube_D = params.__cube_D)
 
+        _nRGB_CVCs_sub = _CVCs1_sub.reshape((N_selector, N_viewPairs, 2, 3) + _CVCs1_sub.shape[-3:])
+        _nRGB_CVCs_sub = _nRGB_CVCs_sub.mean(axis = 2) # (N_cubes, N_viewPairs, 3, D,D,D)
 
-        yield _CVCs2_sub, _gt_sub
+        yield selector, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub
 
 
 
@@ -162,79 +171,100 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         lightConditions = params.__random_lightConditions,
                         modelList = params.__modelList_train), max_prefetch=1)):
 
-            N_cubes_train = dense_gt_train.shape[0]
-            N_batches_train = N_cubes_train / params.__chunk_len_train
-            print("Training iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
-                    _iter, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))
-            for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
-                    N_batches = N_batches_train, 
-                    batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param = cube_param_train,
-                    cameraPOs_np = cameraPOs_np, images_list = images_list_train, dense_gt = dense_gt_train), max_prefetch=1)):
+            if params.__train_ON:
+                N_cubes_train = dense_gt_train.shape[0]
+                N_batches_train = N_cubes_train / params.__chunk_len_train
+                print("Training iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
+                        _iter, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))
+                for _batch, (selector, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
+                        N_batches = N_batches_train, # random selection in each iteration
+                        batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param = cube_param_train,
+                        cameraPOs_np = cameraPOs_np, images_list = images_list_train, dense_gt = dense_gt_train), max_prefetch=1)):
 
-                start_time_batch = time.time()
+                    start_time_batch = time.time()
 
-                # TODO: train_fn have different setting for different training procedures.
-                _loss, acc, surfacePrediction = train_fn(_CVCs2_sub, _gt_sub)
-                                        # if params.__N_viewPairs4train == 1 \
-                                        # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
-                ## print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
-                if math.isnan(_loss.mean()):
-                    print('Loss is nan!')
+                    # TODO: train_fn have different setting for different training procedures.
+                    train_loss, train_acc, train_predict = train_fn(_CVCs2_sub, _gt_sub)
+                                            # if params.__N_viewPairs4train == 1 \
+                                            # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
+                    ## print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
+                    if math.isnan(train_loss.mean()):
+                        print('Loss is nan!')
 
 
-                # if params.__train_SurfaceNet_with_SimilarityNet:
-                #     selected_viewPairs, similNet_features = perform_similNet(similNet_fn=similNet_fn, \
-                #             occupiedCubes_param = train_gt_param[selected], N_select_viewPairs = params.__N_viewPairs2train, models_img=models_img_train, \
-                #             view_set = params.__view_set, cameraPOs=cameraPOs, cameraTs=cameraTs, patch_r=32, batch_size=100, similNet_features_dim = params.__similNet_features_dim)
-                #     
-                #     train_X_sub = gen_coloredCubes(selected_viewPairs = selected_viewPairs, occupiedCubes_param = train_gt_param[selected], \
-                #             cameraPOs=cameraPOs, models_img=models_img_train, visualization_ON = False, occupiedCubes_01 = train_gt_sub)
-                #     train_gt_sub, train_X_sub, train_X_rgb_sub = preprocess_augmentation(train_gt_sub, train_X_sub, augment_ON=True, color2grey = input_is_grey)
-                #     _loss, acc, predict_train, similFeature_softmax_output = train_fn(train_X_sub, similNet_features.reshape(-1,similNet_features.shape[-1]), train_gt_sub)
+                    # if params.__train_SurfaceNet_with_SimilarityNet:
+                    #     selected_viewPairs, similNet_features = perform_similNet(similNet_fn=similNet_fn, \
+                    #             occupiedCubes_param = train_gt_param[selected], N_select_viewPairs = params.__N_viewPairs2train, models_img=models_img_train, \
+                    #             view_set = params.__view_set, cameraPOs=cameraPOs, cameraTs=cameraTs, patch_r=32, batch_size=100, similNet_features_dim = params.__similNet_features_dim)
+                    #     
+                    #     train_X_sub = gen_coloredCubes(selected_viewPairs = selected_viewPairs, occupiedCubes_param = train_gt_param[selected], \
+                    #             cameraPOs=cameraPOs, models_img=models_img_train, visualization_ON = False, occupiedCubes_01 = train_gt_sub)
+                    #     train_gt_sub, train_X_sub, train_X_rgb_sub = preprocess_augmentation(train_gt_sub, train_X_sub, augment_ON=True, color2grey = input_is_grey)
+                    #     _loss, acc, predict_train, similFeature_softmax_output = train_fn(train_X_sub, similNet_features.reshape(-1,similNet_features.shape[-1]), train_gt_sub)
 
-                # else:
-                #     selected_viewPairs = select_M_viewPairs_from_N_randViews_for_N_samples(params.__view_set, params.__N_randViews4train, \
-                #             params.__N_viewPairs2train, N_samples = params.__chunk_len_train, \
-                #             cubes_visib = train_gt_visib[selected] if params.__only_nonOcclud_cubes else None)
-                #     # selected_viewPairs = np.random.choice(params.__view_set, (params.__chunk_len_train,params.__N_viewPairs2train,2))
-                #     train_X_sub = gen_coloredCubes(selected_viewPairs = selected_viewPairs, occupiedCubes_param = train_gt_param[selected], \
-                #             cameraPOs=cameraPOs, models_img=models_img_train, visualization_ON = False, occupiedCubes_01 = train_gt_sub)
-                #     train_gt_sub, train_X_sub, train_X_rgb_sub = preprocess_augmentation(train_gt_sub, train_X_sub, augment_ON=True, color2grey = input_is_grey)
-                #     _loss, acc, predict_train = train_fn(train_X_sub, train_gt_sub)
-                #     
+                    # else:
+                    #     selected_viewPairs = select_M_viewPairs_from_N_randViews_for_N_samples(params.__view_set, params.__N_randViews4train, \
+                    #             params.__N_viewPairs2train, N_samples = params.__chunk_len_train, \
+                    #             cubes_visib = train_gt_visib[selected] if params.__only_nonOcclud_cubes else None)
+                    #     # selected_viewPairs = np.random.choice(params.__view_set, (params.__chunk_len_train,params.__N_viewPairs2train,2))
+                    #     train_X_sub = gen_coloredCubes(selected_viewPairs = selected_viewPairs, occupiedCubes_param = train_gt_param[selected], \
+                    #             cameraPOs=cameraPOs, models_img=models_img_train, visualization_ON = False, occupiedCubes_01 = train_gt_sub)
+                    #     train_gt_sub, train_X_sub, train_X_rgb_sub = preprocess_augmentation(train_gt_sub, train_X_sub, augment_ON=True, color2grey = input_is_grey)
+                    #     _loss, acc, predict_train = train_fn(train_X_sub, train_gt_sub)
+                    #     
 
-                loss_batches.append(np.sum(_loss))
-                acc_train_batches.append(float(acc))
-                acc_guess_all0.append(1-float(_gt_sub.sum())/_gt_sub.size)
-                if (_batch % (N_batches_train / 3 + 1)) == 0:     # only print results of few batches
-                    train_acc = np.asarray(acc_train_batches).mean()
-                    print("Batch %d: Loss %g, train_acc %g, acc_guess_all0 %g" % \
-                            (_batch, np.asarray(loss_batches).mean(), train_acc, np.asarray(acc_guess_all0).mean()))
-                    # move these print log from other threads to the main thread
-
+                    loss_batches.append(np.sum(train_loss))
+                    acc_train_batches.append(float(train_acc))
+                    acc_guess_all0.append(1-float(_gt_sub.sum())/_gt_sub.size)
+                    if (_batch % (N_batches_train / 3 + 1)) == 0:     # only print results of few batches
+                        train_acc = np.asarray(acc_train_batches).mean()
+                        print("Batch %d: Loss %g, train_acc %g, acc_guess_all0 %g" % \
+                                (_batch, np.asarray(loss_batches).mean(), train_acc, np.asarray(acc_guess_all0).mean()))
+                        # move these print log from other threads to the main thread
 
 
             if params.__val_ON and ((_iter % 2) == 0):    # every N modelSet
                 val_acc_batches = []
                 # loop through all the models in the modelList_val. Load & process one-by-one to save memory.
                 for _, (_iter_val, images_list_val, cube_param_val, dense_gt_val, modelList_2load, record_lastLightCondition4models) in \
-                        enumerate(BackgroundGenerator(traverse_models_and_select_lightConditions( \
+                        enumerate(traverse_models_and_select_lightConditions( \
                                 N_on_off_surfacePts = N_on_off_surfacePts_val,
                                 N_models_inBatch = 1,     # select all models
                                 cube_D_loaded = params.__cube_D_loaded,
                                 random_modelOrder = False,
                                 random_lightCondition = False,
                                 lightConditions = params.__lightConditions,
-                                modelList = params.__modelList_val), max_prefetch=1)):
+                                modelList = params.__modelList_val)):
+
+                    if params.__visualizeValModel:
+                        prediction_list, rgb_list, vxl_ijk_list, rayPooling_votes_list = [], [], [], []
+                        param_np, viewPair_np = None, None
 
                     N_cubes_val = dense_gt_val.shape[0]
-                    N_batches_val = N_cubes_val/params.__chunk_len_val
-                    for _batch, (_CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
-                        N_batches = N_batches_val, 
-                        batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
-                        cameraPOs_np = cameraPOs_np, images_list = images_list_val, dense_gt = dense_gt_val), max_prefetch=1)):
-                        val_acc, predict_val = val_fn(_CVCs2_sub, _gt_sub)
+                    for _batch, (selector, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
+                            N_batches = None,  # test all the samples rather than random selection
+                            batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
+                            cameraPOs_np = cameraPOs_np, images_list = images_list_val, dense_gt = dense_gt_val), max_prefetch=1)):
+                        val_acc, val_predict = val_fn(_CVCs2_sub, _gt_sub)
                         val_acc_batches.append(val_acc)   
+
+
+                        if params.__visualizeValModel:
+                            val_rgb_sub = np.mean(_nRGB_CVCs_sub, axis=1)  # ((N_cubes, N_CVCs, 3) + (D_CVC,) * 3) 6D --> ((N_cubes, 3) + (D_CVC,) * 3) 5D
+                            updated_sparse_list_np = sparseCubes.append_dense_2sparseList( \
+                                    prediction_sub = val_predict, rgb_sub = val_rgb_sub, param_sub = cube_param_val[selector],
+                                    min_prob = 0.5, cube_ijk_np = 0, # don't process cube_ijk information
+                                    enable_centerCrop = False, enable_rayPooling = False,
+                                    prediction_list = prediction_list, rgb_list = rgb_list, vxl_ijk_list = vxl_ijk_list,
+                                    param_np = param_np)
+                            prediction_list, rgb_list, vxl_ijk_list, _,  _, param_np, _ = updated_sparse_list_np
+
+                    if params.__visualizeValModel:
+                        ply_filename = os.path.join(params.__output_PCDFile_rootFld, 'stage{}-epoch{}_{}-visualization_{}.ply'.format(trainingStage, epoch, _iter_val, modelList_2load))
+                        vxl_mask_list = sparseCubes.filter_voxels(vxl_mask_list=[],prediction_list=prediction_list, prob_thresh= 0.5)
+                        sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
+                                param_np, ply_filePath=ply_filename, normal_list=None)
+
 
                         # if params.__train_SurfaceNet_with_SimilarityNet:
                         #     selected_viewPairs, similNet_features = perform_similNet(similNet_fn=similNet_fn, \
@@ -266,11 +296,14 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         #     tmp_5D[:,:,X_2[0].squeeze()==0]=0 
                         #     if not params.__train_ON:
                         #         visualize_N_densities_pcl([X_2[0]*params.__surfPredict_scale4visual, result*params.__surfPredict_scale4visual, tmp_5D[0,3:], tmp_5D[0,:3], X_1[0,3:], X_1[0,:3]])
+
+
                 val_acc = np.asarray(val_acc_batches).mean()
                 # move these print log from other threads to the main thread
                 print("Validation iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
                         _iter_val, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))      
                 print("val_acc %g" %(val_acc))
+
 
             if (_iter % 2) == 0:    # every N modelSet
                 modelFilePath = utils_nets.save_entire_model(net[layer_2_save_model], 

@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
             SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [1000, 0], trainingStage = 0,
                     layer_2_save_model = params.__layer_2_save_SurfaceNet, N_epoch = params.__N_epoches[0],
-                    N_on_off_surfacePts_val = [100, 0], **kwargs)
+                    N_on_off_surfacePts_val = [100, 100], **kwargs)  # use the save validation data for different stages for comparison
 
 
         if params.__train_SurfaceNet_with_offSurfacePts:
