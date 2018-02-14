@@ -260,11 +260,12 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                                     param_np = param_np)
                             prediction_list, rgb_list, vxl_ijk_list, _,  _, param_np, _ = updated_sparse_list_np
 
-                    if params.__visualizeValModel:
+                    if params.__visualizeValModel and (_iter % 2) == 0:    # every N modelSet
                         ply_filename = os.path.join(params.__output_PCDFile_rootFld, 'stage{}-epoch{}_{}-visualization_{}.ply'.format(trainingStage, epoch, _iter_val, modelList_2load))
                         vxl_mask_list = sparseCubes.filter_voxels(vxl_mask_list=[],prediction_list=prediction_list, prob_thresh= 0.5)
-                        sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
-                                param_np, ply_filePath=ply_filename, normal_list=None)
+                        if len(vxl_mask_list) != 0:
+                            sparseCubes.save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
+                                    param_np, ply_filePath=ply_filename, normal_list=None)
 
 
                         # if params.__train_SurfaceNet_with_SimilarityNet:
@@ -307,9 +308,11 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
 
 
             if (_iter % 2) == 0:    # every N modelSet
+                modelFileName = 'stage{}-epoch{}_{}-{:0.3}_{:0.3}.model'.format(trainingStage, \
+                        epoch, _iter, train_acc, val_acc)
                 modelFilePath = utils_nets.save_entire_model(net[layer_2_save_model], 
                         save_folder = params.__output_modelFile_rootFld,
-                        filename = 'stage{}-epoch{}_{}-{:0.3}_{:0.3}.model'.format(trainingStage, epoch, _iter, train_acc, val_acc)) 
+                        filename = modelFileName) 
     print('************\n')
     return modelFilePath
 

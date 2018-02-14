@@ -61,7 +61,7 @@ if __name__ == "__main__":
                         with_relativeImpt = False, 
                         SurfaceNet_model_path = SurfaceNet_model_path))
 
-            SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [1000, 0], trainingStage = 0,
+            SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [100, 100] if params.__sameTrainValSamples4visual else [1000, 0], trainingStage = 0,
                     layer_2_save_model = params.__layer_2_save_SurfaceNet, N_epoch = params.__N_epoches[0],
                     N_on_off_surfacePts_val = [100, 100], **kwargs)  # use the save validation data for different stages for comparison
 
