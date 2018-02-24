@@ -8,7 +8,7 @@ import scipy.io
 
 # "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__debug = False     # If True: less models / views / batches
+__debug = True     # If True: less models / views / batches
 __define_fns = True
 __silentLog = True  # If False, the loaded images and pts_file
 
@@ -19,12 +19,13 @@ __output_data_rootFld = "./outputs"
 
 
 __DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
-__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet"
+__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV_100samples"
 __DEBUG_input_data_rootFld_exists = os.path.exists(__DEBUG_input_data_rootFld)
 __DEBUG_output_data_rootFld_exists = os.path.exists(__DEBUG_output_data_rootFld)
 __input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_exists else __input_data_rootFld
 __output_data_rootFld = __DEBUG_output_data_rootFld if __DEBUG_output_data_rootFld_exists else __output_data_rootFld
 __output_modelFile_rootFld = os.path.join(__output_data_rootFld, 'savedModels')
+__output_PCDFile_rootFld = os.path.join(__output_data_rootFld, 'savedPCD')
 
 debug_BB = False
 
@@ -112,9 +113,11 @@ if whatUWant is "reconstruct_model":
 
 elif whatUWant is "train_model":
 
-    __train_ON = True
+    __train_ON = True  # will have error / stop after validation
     __val_ON = True
     __use_pretrained_model = False
+    __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
+    __sameTrainValSamples4visual = True     # If True, only train (overfit) on the same validation set.
     __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_SimilarityNet = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
@@ -126,7 +129,7 @@ elif whatUWant is "train_model":
             74, 76, 83, 84, 85, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, \
             101, 102, 103, 104, 105, 107, 108, 109, 111, 112, 113, 115, 116, 119, 120, \
             121, 122, 123, 124, 125, 126, 127, 128]
-    __modelList_val = [3, 5] if __debug else [3, 5, 17, 21, 28, 35, 37, 38, 40, 43, 56, 59, 66, 67, 82, 86, 106, 117]     # validation
+    __modelList_val = [2, 6] if __debug else [3, 5, 17, 21, 28, 35, 37, 38, 40, 43, 56, 59, 66, 67, 82, 86, 106, 117]     # validation
     __lightConditions = ['3_r5000']  # ['{}_r5000'.format(_) for _ in range(7)] + ['max']   # hard to load all the imgs to memory
     __random_lightConditions = ['{}_r5000'.format(_) for _ in range(7)] + ['max']   # hard to load all the imgs to memory
     imgNamePattern_fn = lambda _model, _light: "Rectified/scan{}/rect_#_{}.png".format(_model, _light)    # replace # to {:03} 
@@ -157,7 +160,8 @@ elif whatUWant is "train_model":
     __layerList_2_loadModel = ["output_SurfaceNet_linear"]
     if __use_pretrained_model:
         if __train_SurfaceNet_wo_offSurfacePts:     # continue to train w/o offSurfacePts
-            __pretrained_SurfaceNet_model_file = 'backup_models/stage0-epoch0_56-0.661_0.731.model'
+            __pretrained_SurfaceNet_model_file = 'backup_models/stage0-epoch1_78-0.799_0.767.model'
+            # __pretrained_SurfaceNet_model_file = 'backup_models/stage0-epoch0_56-0.661_0.731.model'
             # __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
         elif __train_SurfaceNet_with_offSurfacePts:     # load model w/o off surface pts. /OR/ continue to train with offSurfacePts 
             __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'

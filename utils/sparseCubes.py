@@ -6,9 +6,9 @@ import sys
 import camera
 from plyfile import PlyData, PlyElement
 
-def dense2sparse(prediction, rgb, param, viewPair, min_prob = 0.5, rayPool_thresh = 0, \
+def dense2sparse(prediction, rgb, param, min_prob = 0.5, rayPool_thresh = 0, \
         enable_centerCrop = False, cube_Dcenter = None, \
-        enable_rayPooling = False, cameraPOs = None, cameraTs = None):
+        enable_rayPooling = False, viewPair = None, cameraPOs = None, cameraTs = None):
     """
     convert dense prediction / rgb to sparse representation
     using rayPooling & prob_thresholding & center crop
@@ -21,7 +21,7 @@ def dense2sparse(prediction, rgb, param, viewPair, min_prob = 0.5, rayPool_thres
     inputs:
         prediction: np.float16(N_cubes,D,D,D)
         rgb: np.uint8(N_cubes,D,D,D,3)
-        param: np.float32(N_cubes, N_params): 'ijk'/'xyz'/'resol'
+        param: np.float32(N_cubes, N_params): 'ijk'/'min_xyz'/'resolution'
         viewPair: np.uint16(N_cubes, N_viewPairs, 2)
         min_prob = 0.5
 
@@ -53,13 +53,13 @@ def dense2sparse(prediction, rgb, param, viewPair, min_prob = 0.5, rayPool_thres
         # np.s_[_Cmin:_Cmax,_Cmin:_Cmax,_Cmin:_Cmax]
         slc = (slice(_Cmin, _Cmax, 1),)*3 # np.s_[1:6] = slice(1,6)
         # shift the min_xyz of the center_cropped cubes
-        param_new['xyz'] += param_new['resol'][:, None] * _Cmin # (N_cubes, 3) + (N_cubes,1) = (N_cubes, 3)
+        param_new['min_xyz'] += param_new['resolution'][:, None] * _Cmin # (N_cubes, 3) + (N_cubes,1) = (N_cubes, 3)
 
     for _n in range(N_cubes):
         if enable_rayPooling:
             # rayPooling function has already done the prob_thresholding
             rayPool_votes = rayPooling.rayPooling_1cube_numpy(cameraPOs, cameraTs, \
-                    viewPair_viewIndx = viewPair[_n], xyz = param[_n]['xyz'], resol = param[_n]['resol'],\
+                    viewPair_viewIndx = viewPair[_n], xyz = param[_n]['min_xyz'], resol = param[_n]['resolution'],\
                     cube_prediction = prediction[_n], prediction_thresh = min_prob).astype(np.uint8)
             # 2n view pairs, only reserve the voxel with raypooling votes >= n
             vxl_ijk_tuple = np.where(rayPool_votes[slc] >= rayPool_thresh) 
@@ -128,7 +128,7 @@ def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0
 
 
 
-def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, min_prob = 0.5, rayPool_thresh = 0, \
+def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub = None, min_prob = 0.5, rayPool_thresh = 0, \
         enable_centerCrop = False, cube_Dcenter = None, \
         enable_rayPooling = False, cameraPOs = None, cameraTs = None, \
         prediction_list = [], rgb_list = [], vxl_ijk_list = [], rayPooling_votes_list = [], \
@@ -140,7 +140,7 @@ def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, m
     inputs:
         prediction_sub: np.float16(N_cubes,1,D,D,D)/(N_cubes,D,D,D)
         rgb_sub: np.uint8(N_cubes,3,D,D,D)
-        param_sub: np.float32(N_cubes, N_params): 'ijk'/'xyz'/'resol'
+        param_sub: np.float32(N_cubes, N_params): 'ijk'/'min_xyz'/'resolution'
         viewPair_sub: np.uint16(N_cubes, N_viewPairs, 2)
         min_prob = 0.5
 
@@ -153,6 +153,7 @@ def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, m
 
         prediction_list, rgb_list, vxl_ijk_list, rayPooling_votes_list: orignal lists before append
         cube_ijk_np, param_np, viewPair_np: orignal np before append
+        If cube_ijk_np == 0: don't append/process this information
 
     --------------
     outputs:
@@ -162,21 +163,20 @@ def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, m
 
     if prediction_sub.ndim == 5:
         prediction_sub = prediction_sub.astype(np.float16)[:,0]  # (N,1,D,D,D)-->(N,D,D,D)
+    N = prediction_sub.shape[0]
     rgb_sub = np.transpose(rgb_sub.astype(np.uint8), axes=(0,2,3,4,1)) #{N,3,D,D,D} --> {N,D,D,D,3}
     # finnally, only the xyz/resol/modelIndx will be stored. In case the entire param_sub will be saved in memory, we deep copy it.
-    cube_ijk_sub = param_sub['ijk']
-    viewPair_sub = viewPair_sub.astype(np.uint16) # (N,N_viewPairs,2)
+    viewPair_sub = viewPair_sub.astype(np.uint16) if enable_rayPooling else np.empty((N, 0)) # (N,N_viewPairs,2) / (N, 0)
     sparse_output = dense2sparse(prediction = prediction_sub, rgb = rgb_sub, param = param_sub,\
             viewPair = viewPair_sub, min_prob = 0.5, rayPool_thresh = rayPool_thresh,\
-            enable_centerCrop = True, cube_Dcenter = cube_Dcenter,\
-            enable_rayPooling = True, cameraPOs = cameraPOs, cameraTs = cameraTs)
+            enable_centerCrop = enable_centerCrop, cube_Dcenter = cube_Dcenter,\
+            enable_rayPooling = enable_rayPooling, cameraPOs = cameraPOs, cameraTs = cameraTs)
     nonempty_cube_indx_sub, vxl_ijk_sub_list, prediction_sub_list, \
             rgb_sub_list, rayPooling_sub_votes_list, param_new_sub = sparse_output
     param_sub = param_new_sub[nonempty_cube_indx_sub]
     viewPair_sub = viewPair_sub[nonempty_cube_indx_sub]
-    cube_ijk_sub = cube_ijk_sub[nonempty_cube_indx_sub]
     if not len(prediction_sub_list) == len(rgb_sub_list) == len(vxl_ijk_sub_list) == \
-            param_sub.shape[0] == viewPair_sub.shape[0] == cube_ijk_sub.shape[0]:
+            param_sub.shape[0] == viewPair_sub.shape[0]:
         raise Warning('load dense data, # of cubes is not consistent.')
     prediction_list.extend(prediction_sub_list)
     rgb_list.extend(rgb_sub_list)
@@ -184,7 +184,10 @@ def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, m
     rayPooling_votes_list.extend(rayPooling_sub_votes_list)
     param_np = param_sub if param_np is None else np.concatenate([param_np, param_sub], axis=0)  # np append / concatenate
     viewPair_np = viewPair_sub if viewPair_np is None else np.vstack([viewPair_np, viewPair_sub])
-    cube_ijk_np = cube_ijk_sub if cube_ijk_np is None else np.vstack([cube_ijk_np, cube_ijk_sub])
+    if not (cube_ijk_np == 0):
+        cube_ijk_sub = param_sub['ijk']
+        cube_ijk_sub = cube_ijk_sub[nonempty_cube_indx_sub]
+        cube_ijk_np = cube_ijk_sub if cube_ijk_np is None else np.vstack([cube_ijk_np, cube_ijk_sub])
 
     return prediction_list, rgb_list, vxl_ijk_list, rayPooling_votes_list, \
             cube_ijk_np, param_np, viewPair_np
@@ -328,8 +331,8 @@ def save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
     # calculate voxels' xyz 
     xyz_list = []
     for _cube, _select in enumerate(vxl_mask_list):
-        resol = param[_cube]['resol']
-        xyz_list.append(vxl_ijk_list[_cube][_select] * resol + param[_cube]['xyz'][None,:]) # (iN, 3) + (1, 3)
+        resol = param[_cube]['resolution']
+        xyz_list.append(vxl_ijk_list[_cube][_select] * resol + param[_cube]['min_xyz'][None,:]) # (iN, 3) + (1, 3)
     xyz_np = np.vstack(xyz_list)
     vxl_ijk_np, rgb_np = vxl_ijk_np[vxl_mask_np], rgb_np[vxl_mask_np]
 

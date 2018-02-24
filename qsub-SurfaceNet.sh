@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#block(name=inference, threads=1, memory=5000, subtasks=1, gpu=true, hours=100)
+#block(name=inference, threads=1, memory=5000, subtasks=1, gpu=true, hours=300)
     python -u main.py # python will print out immediatly rather than store in buffer first.
     echo "Done" 
 
