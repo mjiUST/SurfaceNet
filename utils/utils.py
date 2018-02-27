@@ -209,9 +209,9 @@ def yield_batch_ij_npBool(ij_lists, batch_size):
     >>> featureArray = np.arange(3*6*8).reshape((3,6,8))
     >>> for _batch_size in [3, 5, 13, 10000]:
     ...     batch_arrays1 = []
-    ...     for _i, _j in yield_batch_ij_npBool(ij_lists = (range(3),range(6)), batch_size = 5):
+    ...     for _i, _j in yield_batch_ij_npBool(ij_lists = (range(3),range(6)), batch_size = _batch_size):
     ...         batch_arrays1.append(featureArray[_i, _j])
-    ...     batch_arrays2 = [featureArray.reshape((3*6, 8))[batch] for batch in gen_batch_npBool(3*6, 5)]
+    ...     batch_arrays2 = [featureArray.reshape((3*6, 8))[batch] for batch in gen_batch_npBool(3*6, _batch_size)]
     ...     np.allclose(batch_arrays1[0], batch_arrays2[0]) and np.allclose(batch_arrays1[-1], batch_arrays2[-1])
     True
     True

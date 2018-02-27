@@ -184,9 +184,8 @@ def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub = 
     rayPooling_votes_list.extend(rayPooling_sub_votes_list)
     param_np = param_sub if param_np is None else np.concatenate([param_np, param_sub], axis=0)  # np append / concatenate
     viewPair_np = viewPair_sub if viewPair_np is None else np.vstack([viewPair_np, viewPair_sub])
-    if not (cube_ijk_np == 0):
-        cube_ijk_sub = param_sub['ijk']
-        cube_ijk_sub = cube_ijk_sub[nonempty_cube_indx_sub]
+    if not (cube_ijk_np is 'N/A'):      # during training process, visualized random cubes don't store this information. OR use `not (cube_ijk_np is 0)` rather than `not (cube_ijk_np == 0)`
+        cube_ijk_sub = param_sub['ijk'] # nonempty_cube_param_sub
         cube_ijk_np = cube_ijk_sub if cube_ijk_np is None else np.vstack([cube_ijk_np, cube_ijk_sub])
 
     return prediction_list, rgb_list, vxl_ijk_list, rayPooling_votes_list, \

@@ -46,7 +46,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
     return patches_embedding, inScope_cubes_vs_views 
 
 
-def embeddingPairs2simil(embeddings, N_views, inScope_cubes_vs_views, embeddingPair2simil_fn, batchSize, viewPairs):
+def embeddingPairs2simil(embeddings, N_views, inScope_cubes_vs_views, embeddingPair2simil_fn, batchSize, viewPairs = None):
     """
     given patches' embeddings, return the disimilarity probability map that set the outScope view pairs
 
@@ -57,15 +57,20 @@ def embeddingPairs2simil(embeddings, N_views, inScope_cubes_vs_views, embeddingP
         embeddingPair2simil_fn:
         batchSize
         viewPairs: (N_viewPairs, 2), 2-combination over range(N_views), such as np.array([[0,1], [0,2], [1,2]])
+            or (N_cubes, N_viewPairs, 2), each cube could have different viewPairs
     """
 
     D_embedding = embeddings.shape[-1]
-    viewPairs = utils.k_combination_np(range(N_views), k = 2)     # (N_viewPairs, 2)
-    N_viewPairs = viewPairs.shape[0]
     N_cubes = embeddings.shape[0]
+    if viewPairs is None:  # viewPairs is not specified
+        viewPairs = utils.k_combination_np(range(N_views), k = 2)     # (N_viewPairs, 2)
+    if viewPairs.ndim == 2: # convert the 2D viewPairs to 3D
+        viewPairs = np.repeat(viewPairs[None], N_cubes, axis=0)     # 2D --> 3D 
+    N_viewPairs = viewPairs.shape[1]
     dissimilarity_1D_list = []
-    for _i_cubes, _j_viewPairs in utils.yield_batch_ij_npBool(ij_lists = (range(N_cubes), viewPairs.flatten()), batch_size = int(batchSize*2)):      # (N_batch, ) for each.  Make sure N_batch%2=0, due to the input paris.
-        _embeddingPairs_sub = embeddings[_i_cubes, _j_viewPairs] # (N_cubes, N_views, D_embedding) --> (N_batch, D_embedding), only generate when needed, in order to save memory
+    for _i_cubes, _j_viewPairs in utils.yield_batch_ij_npBool(ij_lists = (range(N_cubes), range(N_viewPairs*2)), batch_size = int(batchSize*2)):      # (N_batch, ) for each.  Make sure N_batch%2=0, due to the input paris.
+        views = viewPairs.reshape(N_cubes, -1)[_i_cubes, _j_viewPairs]  # (N_cubes, N_viewPairs*2) --> (N_batch, )
+        _embeddingPairs_sub = embeddings[_i_cubes, views] # (N_cubes, N_views, D_embedding) --> (N_batch, D_embedding), only generate when needed, in order to save memory
         dissimilarity_1D_list.append(embeddingPair2simil_fn(_embeddingPairs_sub))   # (N_batch, D_embedding) --> (N_batch/2, )
     dissimilarity = np.vstack(dissimilarity_1D_list).reshape((N_cubes, N_viewPairs)) # (N_cubes, N_viewPairs)
 

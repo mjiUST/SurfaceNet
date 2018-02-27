@@ -26,12 +26,12 @@ def initializeCubes(resol, cube_D, cube_Dcenter, cube_overlapping_ratio, BB):
     [([   3.,  -11., -110.], [0, 0, 0],  1.)
      ([   3.,  -11., -105.], [0, 0, 1],  1.)
      ([   3.,  -11., -100.], [0, 0, 2],  1.)]
-    >>> print cubes_param_np['xyz'][18:22]
+    >>> print cubes_param_np['min_xyz'][18:22]
     [[   3.  -11.  -20.]
      [   3.  -11.  -15.]
      [   3.   -6. -110.]
      [   3.   -6. -105.]]
-    >>> np.allclose(cubes_param_np['xyz'][18:22], cubes_param_np[18:22]['xyz'])
+    >>> np.allclose(cubes_param_np['min_xyz'][18:22], cubes_param_np[18:22]['min_xyz'])
     True
     >>> print cube_D_mm
     22
@@ -47,10 +47,10 @@ def initializeCubes(resol, cube_D, cube_Dcenter, cube_overlapping_ratio, BB):
     cubes_ijk = np.indices(tuple(N_along_xyz))
     N_cubes = cubes_ijk.size / 3   # how many cubes
 
-    cubes_param_np = np.empty((N_cubes,), dtype=[('xyz', np.float32, (3,)), ('ijk', np.uint32, (3,)), ('resol', np.float32)])    # attributes for each CVC (colored voxel cube)
+    cubes_param_np = np.empty((N_cubes,), dtype=[('min_xyz', np.float32, (3,)), ('ijk', np.uint32, (3,)), ('resolution', np.float32)])    # attributes for each CVC (colored voxel cube)
     cubes_param_np['ijk'] = cubes_ijk.reshape([3,-1]).T  # i/j/k grid index
-    cubes_param_np['xyz'] = cubes_param_np['ijk'] * cube_stride_mm + BB[:,0][None,:]    # x/y/z coordinates (mm)
-    cubes_param_np['resol'] = resol
+    cubes_param_np['min_xyz'] = cubes_param_np['ijk'] * cube_stride_mm + BB[:,0][None,:]    # x/y/z coordinates (mm)
+    cubes_param_np['resolution'] = resol
 
     return cubes_param_np, cube_D_mm
 
