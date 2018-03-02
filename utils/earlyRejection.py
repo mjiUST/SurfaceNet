@@ -3,7 +3,7 @@ import utils
 import image
 
 
-def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, N_cubes, N_views, D_embedding, patchSize, batchSize):
+def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize, batchSize):
     """
     given the imgs and the cubeCorners' projection, return the patches' embeddings.
 
@@ -12,9 +12,8 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
         images_list: [(img_h,img_w,3/1), (img_h',img_w',3/1), ...]. list of view images. 
         img_h/w_cubesCorner: (N_views, N_cubes, 8). projectioin of the cubes' corners
         patch2embedding_fn: CNN embedding function
-        N_cubes: # of cubes
-        N_views: # of views
         D_embedding: dim of the embedding
+        img_h_cubesCorner, img_w_cubesCorner: (N_views, N_cubes, 8)
 
     --------------
     outputs:
@@ -22,6 +21,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
         inScope_cubes_vs_views: (N_cubes, N_views), np.bool
     """
 
+    N_views, N_cubes = img_h_cubesCorner.shape[:2]
     # since the images' size may be different, some numpy array operations upon multiple images cannot be used. Just loop through the view image.
     inScope_cubes_vs_views = np.zeros((N_cubes, N_views), dtype=np.bool)    # bool indicator matrix (N_cubes, N_views)
     patches_embedding = np.zeros((N_cubes, N_views, D_embedding), dtype=np.float32)     # (N_cubes, N_views, D_embedding)
@@ -46,7 +46,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
     return patches_embedding, inScope_cubes_vs_views 
 
 
-def embeddingPairs2simil(embeddings, N_views, inScope_cubes_vs_views, embeddingPair2simil_fn, batchSize, viewPairs = None):
+def embeddingPair2simil(embeddings, N_views, embeddingPair2simil_fn, batchSize, viewPairs = None, inScope_cubes_vs_views = None):
     """
     given patches' embeddings, return the disimilarity probability map that set the outScope view pairs
 

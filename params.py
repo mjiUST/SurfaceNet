@@ -19,7 +19,7 @@ __output_data_rootFld = "./outputs"
 
 
 __DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
-__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV_100samples"
+__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV"
 __DEBUG_input_data_rootFld_exists = os.path.exists(__DEBUG_input_data_rootFld)
 __DEBUG_output_data_rootFld_exists = os.path.exists(__DEBUG_output_data_rootFld)
 __input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_exists else __input_data_rootFld
@@ -30,9 +30,22 @@ __output_PCDFile_rootFld = os.path.join(__output_data_rootFld, 'savedPCD')
 debug_BB = False
 
 
+# TODO tune, gpuarray.preallocate=0.95 / -1 
+__batchSize_similNet_patch2embedding_perGB = 350
+__batchSize_similNet_embeddingPair2simil_perGB = 100000
+__batchSize_viewPair_w_perGB = 100000     
+
+__batchSize_similNet_patch2embedding, __batchSize_similNet_embeddingPair2simil, __batchSize_viewPair_w = np.array([\
+        __batchSize_similNet_patch2embedding_perGB, \
+        __batchSize_similNet_embeddingPair2simil_perGB, \
+        __batchSize_viewPair_w_perGB, \
+        ], dtype=np.uint64) * __GPUMemoryGB
+
+
 #######################
 ## reconstruct_model ##
 #######################
+
 
 if whatUWant is "reconstruct_model": 
     """
@@ -53,18 +66,6 @@ if whatUWant is "reconstruct_model":
     __min_prob = 0.46 # in order to save memory, filter out the voxels with prob < min_prob
     __tau = 0.7     # fix threshold for thinning
     __gamma = 0.8   # used in the ray pooling procedure
-
-    # TODO tune, gpuarray.preallocate=0.95 / -1 
-    __batchSize_similNet_patch2embedding_perGB = 350
-    __batchSize_similNet_embeddingPair2simil_perGB = 100000
-    __batchSize_viewPair_w_perGB = 100000     
-
-
-    __batchSize_similNet_patch2embedding, __batchSize_similNet_embeddingPair2simil, __batchSize_viewPair_w = np.array([\
-            __batchSize_similNet_patch2embedding_perGB, \
-            __batchSize_similNet_embeddingPair2simil_perGB, \
-            __batchSize_viewPair_w_perGB, \
-            ], dtype=np.uint64) * __GPUMemoryGB
 
     #-----------
     # similarNet
@@ -118,8 +119,8 @@ elif whatUWant is "train_model":
     __use_pretrained_model = False
     __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
     __sameTrainValSamples4visual = True     # If True, only train (overfit) on the same validation set.
-    __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
-    __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_wo_offSurfacePts = False  # If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_with_offSurfacePts = False    #  If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_SimilarityNet = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
 
 
@@ -171,21 +172,22 @@ elif whatUWant is "train_model":
         __pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
         # __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
 
-        # SimilarityNet model
-        __pretrained_similNet_model_path = os.path.join(__input_data_rootFld, 'SurfaceNet_models/epoch33_acc_tr0.707_val0.791.model') # allDTU
     else:  # Don't use pretrained model.
         __pretrained_SurfaceNet_model_path = None
-        __pretrained_similNet_model_path = None
+
 
     #---------------------------
     # SurfaceNet + SimilarityNet
     #---------------------------
     # each patch pair --> features pair --> decide view pairs
     # 2 * 128D/image patch + 1 * (dis)similarity + 1 * angle<v1,v2>
-    __similNet_features_dim = 128*2+1+1
     __similNet_hidden_dim = 100 
+    __D_imgPatchEmbedding = 128
+    __D_viewPairFeature = __D_imgPatchEmbedding * 2 + 1 + 1     # embedding / view pair angle / similarity
     __imgPatch_hw_size = 64
 
+    # SimilarityNet model
+    __pretrained_similNet_model_path = os.path.join(__input_data_rootFld, 'SurfaceNet_models/epoch33_acc_tr0.707_val0.791.model') # allDTU
 
 
 ##########################

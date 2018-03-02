@@ -3,7 +3,10 @@ np.random.seed(201801)
 import math
 import os
 import itertools
-         
+
+import camera
+import earlyRejection
+
 ## only defines some operations that could be used from multiple files
     
 
@@ -42,6 +45,57 @@ def generate_voxelLevelWeighted_coloredCubes(viewPair_coloredCubes, viewPair_sur
     new_coloredCubes = np.sum(voxel_weight[:,:,None,...] * mean_viewPair_coloredCubes, axis=1)
 
     return new_coloredCubes.astype(np.uint8)
+
+
+def generate_viewPairs_featureVec( \
+        model_images_list, cube_param, viewPairs, images_slice,
+        cameraPOs_np, cameraTs_np, patches_mean_bgr, 
+        D_embedding, D_featureVec, cube_D, patchSize, batchSize_patch2embedding, batchSize_embeddingPair2simil,
+        patch2embedding_fn, embeddingPair2simil_fn):
+    """
+    generate viewPairs featureVector by considering: imagePatch_embeddings + view angle (baseline) + dissimilarity
+
+    inputs:
+        model_images_list: [(N_views, N_lights, h, w, 3/1), ...]
+        images_slice: [(N_views, N_views), ] * N_cubes, used to select from the images[images_slice[i]]
+        viewPairs: (N_cubes, N_viewPairs, 2) each cube have specific viewPairs
+        patches_mean_bgr: 
+
+    outputs:
+        viewPairs_featureVec: (N_cubes * N_viewPairs, D_featureVec) float32
+    """
+
+    cube_xyz_min = cube_param['min_xyz']
+    cube_D_mm = cube_D * cube_param['resolution']  # (N_cubes, ) cubes may have different resolution
+    N_cubes = cube_param.shape[0]
+    N_views = cameraPOs_np.shape[0]
+    N_viewPairs = viewPairs.shape[-2]
+    viewPairs_featureVec = np.zeros((N_cubes, N_viewPairs, D_featureVec))
+    cubeCenters_xyz = cube_xyz_min + cube_D_mm[:, None] / 2.    # (N_cubes, 3)
+
+    theta_viewPairs = camera.viewPairAngles_wrt_pts(cameraTs = cameraTs_np, pts_xyz = cubeCenters_xyz)[..., None]  # (N_cubes, N_viewPairs, 1)
+
+    # N_cubes = 1, loop through each cube
+    for _cube in range(N_cubes): # since each cube could have different resolution
+        _modelIndex = cube_param['modelIndex'][_cube]
+        # [(N_views, N_lights, h, w, 3/1), ] * N_models --> (N_views, h, w, ...) --> [(h, w, ...), ] * N_views
+        images_list = [model_images_list[_modelIndex][images_slice[_cube]][_view] for _view in range(N_views)]  
+        img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner( \
+                projection_M = cameraPOs_np,
+                cube_xyz_min = cube_xyz_min[_cube:_cube+1],
+                cube_D_mm = cube_D_mm[_cube],
+                return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes=1, 8)
+        patches_embedding, _ = earlyRejection.patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize = patchSize, batchSize = batchSize_patch2embedding)    # (N_cubes=1, N_views, D_embedding), (N_cubes, N_views)
+        _viewPairs = viewPairs[_cube] # (N_viewPairs, 2)
+        _d_viewPairs = earlyRejection.embeddingPair2simil(embeddings = patches_embedding, 
+                embeddingPair2simil_fn = embeddingPair2simil_fn, 
+                viewPairs = _viewPairs,
+                N_views = N_views,
+                batchSize = batchSize_embeddingPair2simil)   # (N_cubes=1, N_viewPairs)
+
+        _e_viewPairs = patches_embedding[:, _viewPairs.flatten()].reshape((N_viewPairs, 2 * D_embedding))
+        viewPairs_featureVec[_cube] = np.concatenate([_e_viewPairs, _d_viewPairs[0, :, None], theta_viewPairs[_cube]], axis=-1).astype(np.float32) # (N_cubes, N_viewPairs, D_featureVec)
+    return viewPairs_featureVec.reshape((N_cubes * N_viewPairs, D_featureVec)).astype(np.float32)
 
 
 def gen_batch_index(N_all, batch_size):

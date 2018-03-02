@@ -24,7 +24,7 @@ import SurfaceNet
 import SimilarityNet
 
 
-def load_dnn_fns(with_relativeImpt, SurfaceNet_model_path = None, SimilarityNet_model_path = None):
+def load_dnn_fns(with_relativeImpt, SurfaceNet_model_path = None, SimilarityNet_model_path = 'N/A'):
     """
     define / load all the dnn functions for training / finetuning
     """
@@ -34,8 +34,9 @@ def load_dnn_fns(with_relativeImpt, SurfaceNet_model_path = None, SimilarityNet_
     outputDic = {'net': net, 'train_fn': train_fn, 'val_fn': val_fn, 'lr_tensor': lr_tensor}
 
     # TODO: define and load SimilarityNet
-    if not SimilarityNet_model_path is None:
-        patch2embedding_fn, embeddingPair2simil_fn = SimilarityNet.SimilarityNet_inference(model_path = SimilarityNet_model_path, \
+    if not SimilarityNet_model_path is 'N/A':
+        patch2embedding_fn, embeddingPair2simil_fn = SimilarityNet.SimilarityNet_inference(
+                model_path = SimilarityNet_model_path,
                 imgPatch_hw_size = (params.__imgPatch_hw_size, )*2 )
         outputDic.update({'patch2embedding_fn': patch2embedding_fn, 'embeddingPair2simil_fn': embeddingPair2simil_fn})
 
@@ -71,14 +72,15 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
     for selector in selectors_np:
         N_selector = batchSize if N_batches else selector.sum()
         # generate CVC
-        rand_viewPairs = np.random.randint(0, len(params.__viewList), (N_selector, N_viewPairs, 2)) # (params.__chunk_len, N_viewPair, 2) randomly select viewPairs for each cube
+        rand_viewPairs = np.random.randint(0, len(params.__viewList), (N_selector, N_viewPairs, 2)) # (N_selector, N_viewPair, 2) randomly select viewPairs for each cube
         # dtype = uint8
-        _CVCs1_sub = CVC.gen_models_coloredCubes( \
-                viewPairs = rand_viewPairs,  \
-                cube_params = cube_param[selector], \
-                cameraPOs = cameraPOs_np, \
-                models_img_list = images_list, \
-                cube_D = cube_param['cube_D'][0] \
+        _CVCs1_sub, images_slice = CVC.gen_models_coloredCubes( \
+                viewPairs = rand_viewPairs,
+                cube_params = cube_param[selector],
+                cameraPOs = cameraPOs_np,
+                models_img_list = images_list,
+                cube_D = cube_param['cube_D'][0],
+                random_colorCondition = augment_ON # If True: randomly select light conditions for different views
                 ) # ((N_selector * __N_viewPairs4train, 3 * 2) + (D_CVC,) * 3) 5D
         _gt_sub = dense_gt[selector][:, None]  # (N, D,D,D) --> (N, 1, D,D,D)
         _gt_sub, _CVCs2_sub = CVC.preprocess_augmentation(_gt_sub, _CVCs1_sub, mean_rgb = params.__MEAN_CVC_RGBRGB[None,:,None,None,None], augment_ON=augment_ON, crop_ON = True, cube_D = params.__cube_D)
@@ -86,7 +88,7 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
         _nRGB_CVCs_sub = _CVCs1_sub.reshape((N_selector, N_viewPairs, 2, 3) + _CVCs1_sub.shape[-3:])
         _nRGB_CVCs_sub = _nRGB_CVCs_sub.mean(axis = 2) # (N_cubes, N_viewPairs, 3, D,D,D)
 
-        yield selector, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub
+        yield selector, rand_viewPairs, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice
 
 
 
@@ -137,6 +139,7 @@ def traverse_models_and_select_lightConditions(N_models_inBatch, modelList, ligh
 
 def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
         net = None, train_fn = None, val_fn = None, layer_2_save_model = '', N_epoch = 2,
+        patch2embedding_fn = None, embeddingPair2simil_fn = None,
         N_on_off_surfacePts_train = [100, 100], N_on_off_surfacePts_val = [100, 100]):
     """
 
@@ -170,29 +173,47 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         random_lightCondition = True,
                         lightConditions = params.__random_lightConditions,
                         modelList = params.__modelList_train), max_prefetch=1)):
+                # images_list_train: [(N_views, 1, h, w, ...), ] * N_models
 
             if params.__train_ON:
                 N_cubes_train = dense_gt_train.shape[0]
                 N_batches_train = N_cubes_train / params.__chunk_len_train
                 print("Training iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
                         _iter, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))
-                for _batch, (selector, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
+                for _batch, (selector, rand_viewPairs, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
                         N_batches = N_batches_train, # random selection in each iteration
                         batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param = cube_param_train,
                         cameraPOs_np = cameraPOs_np, images_list = images_list_train, dense_gt = dense_gt_train), max_prefetch=1)):
 
                     start_time_batch = time.time()
 
-                    # TODO: train_fn have different setting for different training procedures.
-                    train_loss, acc, train_predict = train_fn(_CVCs2_sub, _gt_sub)
+                    if params.__train_SurfaceNet_with_SimilarityNet:
+                        # patches generation --> patch embedding
+                        viewPairs = rand_viewPairs # (N_cubes, N_viewPairs, 2)
+                        viewPairs_featureVec = utils.generate_viewPairs_featureVec( \
+                                model_images_list = images_list_train,  # [(N_views, N_lights, h, w, 3/1), ] * N_models
+                                cube_param = cube_param_train[selector],
+                                images_slice = images_slice,
+                                viewPairs = viewPairs,
+                                cameraPOs_np = cameraPOs_np, cameraTs_np = cameraTs_np,
+                                patches_mean_bgr = params.__MEAN_PATCHES_BGR,
+                                D_embedding = params.__D_imgPatchEmbedding, D_featureVec = params.__D_viewPairFeature,
+                                cube_D = params.__cube_D_loaded,
+                                patchSize = params.__imgPatch_hw_size,
+                                batchSize_patch2embedding = params.__batchSize_similNet_patch2embedding,
+                                batchSize_embeddingPair2simil = params.__batchSize_similNet_embeddingPair2simil,
+                                patch2embedding_fn = patch2embedding_fn, embeddingPair2simil_fn = embeddingPair2simil_fn
+                                )
+                        train_loss, acc, train_predict, output_softmaxWeights = train_fn(_CVCs2_sub, viewPairs_featureVec, _gt_sub)
                                             # if params.__N_viewPairs4train == 1 \
                                             # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
+                    else:  # without relative importance
+                        train_loss, acc, train_predict = train_fn(_CVCs2_sub, _gt_sub)
                     ## print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
                     if math.isnan(train_loss.mean()):
                         print('Loss is nan!')
 
 
-                    # if params.__train_SurfaceNet_with_SimilarityNet:
                     #     selected_viewPairs, similNet_features = perform_similNet(similNet_fn=similNet_fn, \
                     #             occupiedCubes_param = train_gt_param[selected], N_select_viewPairs = params.__N_viewPairs2train, models_img=models_img_train, \
                     #             view_set = params.__view_set, cameraPOs=cameraPOs, cameraTs=cameraTs, patch_r=32, batch_size=100, similNet_features_dim = params.__similNet_features_dim)
@@ -202,16 +223,6 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                     #     train_gt_sub, train_X_sub, train_X_rgb_sub = preprocess_augmentation(train_gt_sub, train_X_sub, augment_ON=True, color2grey = input_is_grey)
                     #     _loss, acc, predict_train, similFeature_softmax_output = train_fn(train_X_sub, similNet_features.reshape(-1,similNet_features.shape[-1]), train_gt_sub)
 
-                    # else:
-                    #     selected_viewPairs = select_M_viewPairs_from_N_randViews_for_N_samples(params.__view_set, params.__N_randViews4train, \
-                    #             params.__N_viewPairs2train, N_samples = params.__chunk_len_train, \
-                    #             cubes_visib = train_gt_visib[selected] if params.__only_nonOcclud_cubes else None)
-                    #     # selected_viewPairs = np.random.choice(params.__view_set, (params.__chunk_len_train,params.__N_viewPairs2train,2))
-                    #     train_X_sub = gen_coloredCubes(selected_viewPairs = selected_viewPairs, occupiedCubes_param = train_gt_param[selected], \
-                    #             cameraPOs=cameraPOs, models_img=models_img_train, visualization_ON = False, occupiedCubes_01 = train_gt_sub)
-                    #     train_gt_sub, train_X_sub, train_X_rgb_sub = preprocess_augmentation(train_gt_sub, train_X_sub, augment_ON=True, color2grey = input_is_grey)
-                    #     _loss, acc, predict_train = train_fn(train_X_sub, train_gt_sub)
-                    #     
 
                     loss_batches.append(np.sum(train_loss))
                     acc_train_batches.append(float(acc))
@@ -241,7 +252,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         param_np, viewPair_np = None, None
 
                     N_cubes_val = dense_gt_val.shape[0]
-                    for _batch, (selector, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub) in enumerate(BackgroundGenerator(prepare_minibatches( \
+                    for _batch, (selector, rand_viewPairs, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
                             N_batches = None,  # test all the samples rather than random selection
                             augment_ON = False,
                             batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
@@ -254,7 +265,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                             val_rgb_sub = np.mean(_nRGB_CVCs_sub, axis=1)  # ((N_cubes, N_CVCs, 3) + (D_CVC,) * 3) 6D --> ((N_cubes, 3) + (D_CVC,) * 3) 5D
                             updated_sparse_list_np = sparseCubes.append_dense_2sparseList( \
                                     prediction_sub = val_predict, rgb_sub = val_rgb_sub, param_sub = cube_param_val[selector],
-                                    min_prob = 0.5, cube_ijk_np = 0, # don't process cube_ijk information
+                                    min_prob = 0.5, cube_ijk_np = 'N/A', # don't process cube_ijk information
                                     enable_centerCrop = False, enable_rayPooling = False,
                                     prediction_list = prediction_list, rgb_list = rgb_list, vxl_ijk_list = vxl_ijk_list,
                                     param_np = param_np)

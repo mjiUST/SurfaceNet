@@ -64,9 +64,9 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     viewPairs = utils.k_combination_np(range(N_views), k = 2)     # (N_viewPairs, 2)
     N_viewPairs = viewPairs.shape[0]
     patches_mean_bgr = params.__MEAN_PATCHES_BGR
-    patches_embedding, inScope_cubes_vs_views = earlyRejection.patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, N_cubes, N_views, D_embedding, patchSize = params.__imgPatch_hw_size, batchSize = params.__batchSize_similNet_patch2embedding)    # (N_cubes, N_views, D_embedding), (N_cubes, N_views)
+    patches_embedding, inScope_cubes_vs_views = earlyRejection.patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize = params.__imgPatch_hw_size, batchSize = params.__batchSize_similNet_patch2embedding)    # (N_cubes, N_views, D_embedding), (N_cubes, N_views)
 
-    dissimilarity = earlyRejection.embeddingPairs2simil(embeddings = patches_embedding, 
+    dissimilarity = earlyRejection.embeddingPair2simil(embeddings = patches_embedding, 
             embeddingPair2simil_fn = embeddingPair2simil_fn, 
             inScope_cubes_vs_views = inScope_cubes_vs_views, 
             viewPairs = viewPairs, 

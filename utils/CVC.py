@@ -102,29 +102,37 @@ def gen_models_coloredCubes(viewPairs, cube_params, cameraPOs, models_img_list, 
     random_colorCondition: If True: randomly select images with different (random) light conditions
             If False: the set of model_imgs is under the same light condition.
     
+    outputs:
+        images_slice: [(N_views, N_views), ] * N_cubes, used to select from the images[images_slice[i]]
     """
 
     N_cubes, N_viewPairs = viewPairs.shape[:2]
     cube_D = cube_params[0]['cube_D']  # all the cubes should have the same size (cube_D, )*3
     output_CVC = np.zeros((N_cubes, N_viewPairs, 3+3) + (cube_D, ) * 3)
+    images_slice = []
     for _cube in range(N_cubes):
         # cube_param: min_xyz / resolution / cube_D / modelIndex
         _modelIndex = cube_params[_cube]['modelIndex']
         # input (1, N_viewPair, 2) view index, return (N_viewPair * 1, 3+3, s, s, s) 
         _1cube_slice = slice(_cube, _cube+1, 1)
-        if random_colorCondition: # TODO: ing
-            pass 
+        _model_lights_imgs = models_img_list[_modelIndex] # (N_views, N_lights, H, W, 3)
+        _N_views, _N_lights = _model_lights_imgs.shape[:2] # (N_views, N_lights, H, W, 3)
+
+        if random_colorCondition: # each view may have different light condition 
+            _light_selector = np.random.randint(0, _N_lights, (_N_views, ))
         else: # the set of model_imgs is under the same light condition.
-            _model_lights_imgs = models_img_list[_modelIndex] # (N_views, N_lights, H, W, 3)
-            _N_lights = _model_lights_imgs.shape[1] # (N_views, N_lights, H, W, 3)
-            _model_imgs = _model_lights_imgs[:, np.random.randint(_N_lights)] # (N_views, H, W, 3)
+            _light_selector = np.random.randint(0, _N_lights, (1, )).repeat(_N_views)
+
+        _images_slice = (np.arange(_N_views), _light_selector)
+        images_slice.append(_images_slice)
+        _model_imgs = _model_lights_imgs[_images_slice] # (N_views, N_lights, H, W, ...) --> (N_views, H, W, ...)
         output_CVC[_cube] = gen_coloredCubes(selected_viewPairs = viewPairs[_1cube_slice],
                 min_xyz = cube_params[_1cube_slice]['min_xyz'], 
                 resol = cube_params[_1cube_slice]['resolution'], 
                 cameraPOs = cameraPOs, 
                 model_imgs = _model_imgs, 
                 colorize_cube_D = cube_D)
-    return output_CVC.reshape((N_cubes * N_viewPairs, 3+3) + (cube_D, ) * 3)
+    return output_CVC.reshape((N_cubes * N_viewPairs, 3+3) + (cube_D, ) * 3), images_slice
 
 
 def data_augment_rand_crop(Xlist, crop_size):
