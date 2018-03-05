@@ -51,6 +51,8 @@ if __name__ == "__main__":
         ####################
         # train SurfaceNet #
         ####################
+        N_modelCubes_train = 1000 # Sample such NO. of cubes for each cube. 1000 is too large to loop through all the training models in reasonable time.
+        N_modelCubes_val = 100
 
         # by default, load the saved model (or None)
         SurfaceNet_model_path = params.__pretrained_SurfaceNet_model_path
@@ -61,9 +63,9 @@ if __name__ == "__main__":
                         with_relativeImpt = False, 
                         SurfaceNet_model_path = SurfaceNet_model_path))
 
-            SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [100, 100] if params.__sameTrainValSamples4visual else [1000, 0], trainingStage = 0,
+            SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [N_modelCubes_val, N_modelCubes_val] if params.__sameTrainValSamples4visual else [N_modelCubes_train, 0], trainingStage = 0,
                     layer_2_save_model = params.__layer_2_save_SurfaceNet, N_epoch = params.__N_epoches[0],
-                    N_on_off_surfacePts_val = [100, 100], **kwargs)  # use the save validation data for different stages for comparison
+                    N_on_off_surfacePts_val = [N_modelCubes_val, N_modelCubes_val], **kwargs)  # use the save validation data for different stages for comparison
 
 
         if params.__train_SurfaceNet_with_offSurfacePts:
@@ -73,9 +75,9 @@ if __name__ == "__main__":
                         with_relativeImpt = False, 
                         SurfaceNet_model_path = SurfaceNet_model_path))
 
-            SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [1000, 1000], trainingStage = 1,
+            SurfaceNet_model_path = main_train.train(N_on_off_surfacePts_train = [N_modelCubes_train, N_modelCubes_train], trainingStage = 1,
                     layer_2_save_model = params.__layer_2_save_SurfaceNet, N_epoch = params.__N_epoches[1],
-                    N_on_off_surfacePts_val = [100, 100], **kwargs)
+                    N_on_off_surfacePts_val = [N_modelCubes_val, N_modelCubes_val], **kwargs)
 
 
         #######################################
@@ -90,9 +92,9 @@ if __name__ == "__main__":
                         SurfaceNet_model_path = SurfaceNet_model_path, 
                         SimilarityNet_model_path = params.__pretrained_similNet_model_path))
 
-            main_train.train(N_on_off_surfacePts_train = [1000, 1000], trainingStage = 2,
+            main_train.train(N_on_off_surfacePts_train = [N_modelCubes_train, N_modelCubes_train], trainingStage = 2,
                     layer_2_save_model = params.__layer_2_save_fusionNet, N_epoch = params.__N_epoches[2],
-                    N_on_off_surfacePts_val = [100, 100], **kwargs)
+                    N_on_off_surfacePts_val = [N_modelCubes_val, N_modelCubes_val], **kwargs)
 
 
 

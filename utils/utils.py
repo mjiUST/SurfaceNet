@@ -47,12 +47,13 @@ def generate_voxelLevelWeighted_coloredCubes(viewPair_coloredCubes, viewPair_sur
     return new_coloredCubes.astype(np.uint8)
 
 
-def generate_viewPairs_featureVec( \
+def generate_viewPairs_featureVec_oneByOne( \
         model_images_list, cube_param, viewPairs, images_slice,
         cameraPOs_np, cameraTs_np, patches_mean_bgr, 
         D_embedding, D_featureVec, cube_D, patchSize, batchSize_patch2embedding, batchSize_embeddingPair2simil,
         patch2embedding_fn, embeddingPair2simil_fn):
     """
+    Very slow if loop one-by-one
     generate viewPairs featureVector by considering: imagePatch_embeddings + view angle (baseline) + dissimilarity
 
     inputs:
@@ -85,6 +86,7 @@ def generate_viewPairs_featureVec( \
                 cube_xyz_min = cube_xyz_min[_cube:_cube+1],
                 cube_D_mm = cube_D_mm[_cube],
                 return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes=1, 8)
+        # Very slow if loop one-by-one
         patches_embedding, _ = earlyRejection.patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize = patchSize, batchSize = batchSize_patch2embedding)    # (N_cubes=1, N_views, D_embedding), (N_cubes, N_views)
         _viewPairs = viewPairs[_cube] # (N_viewPairs, 2)
         _d_viewPairs = earlyRejection.embeddingPair2simil(embeddings = patches_embedding, 
@@ -96,6 +98,76 @@ def generate_viewPairs_featureVec( \
         _e_viewPairs = patches_embedding[:, _viewPairs.flatten()].reshape((N_viewPairs, 2 * D_embedding))
         viewPairs_featureVec[_cube] = np.concatenate([_e_viewPairs, _d_viewPairs[0, :, None], theta_viewPairs[_cube]], axis=-1).astype(np.float32) # (N_cubes, N_viewPairs, D_featureVec)
     return viewPairs_featureVec.reshape((N_cubes * N_viewPairs, D_featureVec)).astype(np.float32)
+
+
+def generate_1model_patches_embedding( \
+        images_list, cube_param,
+        cameraPOs_np, patches_mean_bgr, 
+        D_embedding, cube_D, patchSize, batchSize_patch2embedding,
+        patch2embedding_fn):
+    """
+    generate patches embeddings of only ONE model
+
+    inputs:
+
+    outputs:
+        patches_embedding: (N_cubes, N_views, D_embedding) float32
+    """
+
+    cube_xyz_min = cube_param['min_xyz']
+    cube_D_mm = cube_D * cube_param['resolution']  # (N_cubes, ) cubes may have different resolution
+    N_cubes = cube_param.shape[0]
+    N_views = cameraPOs_np.shape[0]
+
+    img_h_cubesCorner = np.zeros((N_views, N_cubes, 8)).astype(np.float32)
+    img_w_cubesCorner = np.zeros((N_views, N_cubes, 8)).astype(np.float32)
+    for _cube in range(N_cubes): # since each cube could have different resolution
+        _img_h_cubesCorner, _img_w_cubesCorner = camera.perspectiveProj_cubesCorner( \
+                projection_M = cameraPOs_np,
+                cube_xyz_min = cube_xyz_min[_cube:_cube+1],
+                cube_D_mm = cube_D_mm[_cube],
+                return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes=1, 8)
+        img_h_cubesCorner[:, _cube] = _img_h_cubesCorner[:, 0] # (N_views, 8)
+        img_w_cubesCorner[:, _cube] = _img_w_cubesCorner[:, 0]
+
+    patches_embedding, _ = earlyRejection.patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize = patchSize, batchSize = batchSize_patch2embedding)    # (N_cubes, N_views, D_embedding), (N_cubes, N_views)
+
+    return patches_embedding
+
+
+def generate_viewPairs_featureVec( \
+        theta_viewPairs, patches_embedding,
+        viewPairs,
+        D_featureVec, batchSize_embeddingPair2simil,
+        embeddingPair2simil_fn):
+    """
+    generate viewPairs featureVector by considering: imagePatch_embeddings + view angle (baseline) + dissimilarity
+
+    inputs:
+        viewPairs: (N_cubes, N_viewPairs, 2) each cube have specific viewPairs
+        theta_viewPairs: (N_cubes, N_viewPairs)
+        patches_embedding: (N_cubes, N_views, D_embedding)
+
+    outputs:
+        viewPairs_featureVec: (N_cubes * N_viewPairs, D_featureVec) float32
+    """
+
+    N_cubes, N_views = patches_embedding.shape[:2]
+    N_viewPairs = viewPairs.shape[-2]
+
+    d_viewPairs = earlyRejection.embeddingPair2simil(embeddings = patches_embedding,
+            embeddingPair2simil_fn = embeddingPair2simil_fn,
+            viewPairs = viewPairs,  # (N_cubes, N_viewPairs, 2) support the case that cubes have different 'viewPairs'
+            N_views = N_views,
+            batchSize = batchSize_embeddingPair2simil)   # (N_cubes, N_viewPairs)
+
+    index_axis0 = np.arange(N_cubes)[..., None].repeat(N_viewPairs * 2, axis=1) # (N_cubes, N_viewPairs * 2)
+    index_axis1 = viewPairs.reshape((-1, N_viewPairs * 2)) # (N_cubes, N_viewPairs * 2)
+    # (N_cubes, N_views, D_embedding) --> (N_cubes, N_viewPairs, 2 * D_embedding)
+    e_viewPairs = patches_embedding[(index_axis0, index_axis1)].reshape((N_cubes, N_viewPairs, -1))
+    viewPairs_featureVec = np.concatenate([e_viewPairs, d_viewPairs[..., None], theta_viewPairs[..., None]], axis=-1).astype(np.float32) # (N_cubes, N_viewPairs, D_featureVec)
+    return viewPairs_featureVec.reshape((N_cubes * N_viewPairs, D_featureVec)).astype(np.float32)
+
 
 
 def gen_batch_index(N_all, batch_size):

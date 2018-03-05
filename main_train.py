@@ -154,6 +154,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
     #######################
 
     N_viewPairs = params.__N_viewPairs4train
+    N_views = cameraPOs_np.shape[0]
 
     start_time_epoch = time.time()
     for epoch in range(N_epoch):  # how many times to iterate the entire modelList
@@ -173,13 +174,30 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         random_lightCondition = True,
                         lightConditions = params.__random_lightConditions,
                         modelList = params.__modelList_train), max_prefetch=1)):
-                # images_list_train: [(N_views, 1, h, w, ...), ] * N_models
+                # images_list_train: [(N_views, 1, h, w, ...), ] * N_models=1
 
             if params.__train_ON:
                 N_cubes_train = dense_gt_train.shape[0]
                 N_batches_train = N_cubes_train / params.__chunk_len_train
                 print("Training iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
                         _iter, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))
+
+                if params.__train_SurfaceNet_with_SimilarityNet: # calculate the SimilarityNet terms before loop to speed up
+                    theta_viewPairs = camera.viewPairAngles_wrt_pts( \
+                            cameraTs = cameraTs_np, 
+                            pts_xyz = cube_param_train['min_xyz'] + (params.__cube_D_loaded * cube_param_train['resolution'])[:, None] / 2.    # cube_center_mm (N_cubes, 3)
+                            )  # (N_cubes, N_viewPairs)
+                    patches_embedding = utils.generate_1model_patches_embedding( \
+                            images_list = [images_list_train[0][_v, 0] for _v in range(N_views)],  # [(N_views, N_lights=1, h, w, 3/1), ] * N_models=1 --> [(h, w, 3/1), ] * N_views
+                            cube_param = cube_param_train,
+                            cameraPOs_np = cameraPOs_np,
+                            patches_mean_bgr = params.__MEAN_PATCHES_BGR,
+                            D_embedding = params.__D_imgPatchEmbedding,
+                            cube_D = params.__cube_D_loaded,
+                            patchSize = params.__imgPatch_hw_size,
+                            batchSize_patch2embedding = params.__batchSize_similNet_patch2embedding,
+                            patch2embedding_fn = patch2embedding_fn) # (N_cubes, N_views, D_embedding)
+
                 for _batch, (selector, rand_viewPairs, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
                         N_batches = N_batches_train, # random selection in each iteration
                         batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param = cube_param_train,
@@ -188,21 +206,13 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                     start_time_batch = time.time()
 
                     if params.__train_SurfaceNet_with_SimilarityNet:
-                        # patches generation --> patch embedding
-                        viewPairs = rand_viewPairs # (N_cubes, N_viewPairs, 2)
                         viewPairs_featureVec = utils.generate_viewPairs_featureVec( \
-                                model_images_list = images_list_train,  # [(N_views, N_lights, h, w, 3/1), ] * N_models
-                                cube_param = cube_param_train[selector],
-                                images_slice = images_slice,
-                                viewPairs = viewPairs,
-                                cameraPOs_np = cameraPOs_np, cameraTs_np = cameraTs_np,
-                                patches_mean_bgr = params.__MEAN_PATCHES_BGR,
-                                D_embedding = params.__D_imgPatchEmbedding, D_featureVec = params.__D_viewPairFeature,
-                                cube_D = params.__cube_D_loaded,
-                                patchSize = params.__imgPatch_hw_size,
-                                batchSize_patch2embedding = params.__batchSize_similNet_patch2embedding,
+                                theta_viewPairs = theta_viewPairs[selector],
+                                patches_embedding = patches_embedding[selector],
+                                viewPairs = rand_viewPairs, # (N_cubes, N_viewPairs, 2)
+                                D_featureVec = params.__D_viewPairFeature,
                                 batchSize_embeddingPair2simil = params.__batchSize_similNet_embeddingPair2simil,
-                                patch2embedding_fn = patch2embedding_fn, embeddingPair2simil_fn = embeddingPair2simil_fn
+                                embeddingPair2simil_fn = embeddingPair2simil_fn
                                 )
                         train_loss, acc, train_predict, output_softmaxWeights = train_fn(_CVCs2_sub, viewPairs_featureVec, _gt_sub)
                                             # if params.__N_viewPairs4train == 1 \
