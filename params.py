@@ -116,11 +116,11 @@ elif whatUWant is "train_model":
 
     __train_ON = True  # will have error / stop after validation
     __val_ON = True
-    __use_pretrained_model = True
+    __use_pretrained_model = False
     __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
     __sameTrainValSamples4visual = True     # If True, only train (overfit) on the same validation set.
-    __train_SurfaceNet_wo_offSurfacePts = False  # If False, remember to specify the pretrained model, otherwise will train from scratch
-    __train_SurfaceNet_with_offSurfacePts = False    #  If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_SimilarityNet = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
 
 
@@ -173,7 +173,7 @@ elif whatUWant is "train_model":
         # __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
 
     else:  # Don't use pretrained model.
-        __pretrained_SurfaceNet_model_path = None
+        __pretrained_SurfaceNet_model_path = 'N/A'
 
 
     #---------------------------

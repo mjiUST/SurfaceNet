@@ -337,7 +337,7 @@ def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path):
             with_relativeImpt = with_relativeImpt, \
             )
 
-    if not (pretrained_model_path is None):
+    if not (pretrained_model_path == 'N/A'):
         print ('loading volumeNet / fusionNet model: {}'.format(pretrained_model_path))
         layers_2_load_model = [net[_layer_name] for _layer_name in params.__layerList_2_loadModel]
 

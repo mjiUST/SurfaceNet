@@ -191,7 +191,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                 print("Training iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
                         _iter, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))
 
-                if params.__train_SurfaceNet_with_SimilarityNet: # calculate the SimilarityNet terms before loop to speed up
+                if patch2embedding_fn is not None: # calculate the SimilarityNet terms before loop to speed up
                     theta_viewPairs = camera.viewPairAngles_wrt_pts( \
                             cameraTs = cameraTs_np, 
                             pts_xyz = cube_param_train['min_xyz'] + (params.__cube_D_loaded * cube_param_train['resolution'])[:, None] / 2.    # cube_center_mm (N_cubes, 3)
@@ -215,7 +215,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
 
                     start_time_batch = time.time()
 
-                    if params.__train_SurfaceNet_with_SimilarityNet:
+                    if patch2embedding_fn is not None:
                         viewPairs_featureVec = utils.generate_viewPairs_featureVec( \
                                 theta_viewPairs_all = theta_viewPairs[selector],
                                 patches_embedding = patches_embedding[selector],
@@ -262,7 +262,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         prediction_list, rgb_list, vxl_ijk_list, rayPooling_votes_list = [], [], [], []
                         param_np, viewPair_np = None, None
 
-                    if params.__train_SurfaceNet_with_SimilarityNet: # calculate the SimilarityNet terms before loop to speed up
+                    if patch2embedding_fn is not None: # calculate the SimilarityNet terms before loop to speed up
                         theta_viewPairs = camera.viewPairAngles_wrt_pts( \
                                 cameraTs = cameraTs_np, 
                                 pts_xyz = cube_param_val['min_xyz'] + (params.__cube_D_loaded * cube_param_val['resolution'])[:, None] / 2.    # cube_center_mm (N_cubes, 3)
@@ -286,7 +286,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                             batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
                             cameraPOs_np = cameraPOs_np, images_list = images_list_val, dense_gt = dense_gt_val), max_prefetch=1)):
 
-                        if params.__train_SurfaceNet_with_SimilarityNet:
+                        if patch2embedding_fn is not None:
                             viewPairs_featureVec = utils.generate_viewPairs_featureVec( \
                                     theta_viewPairs_all = theta_viewPairs[selector],
                                     patches_embedding = patches_embedding[selector],
