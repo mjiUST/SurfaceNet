@@ -161,7 +161,7 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
     ------------
     inputs:
         img: the input image with any shape, (h,w,3/1)
-        range_h: (N_patches, 2), 2 columns [min, max] pixel range, assume min>=0, max<=img_h
+        range_h: (N_patches, 2), 2 columns [min, max] pixel range. For outrange h(h < 0)=0; h(h > h_max)=h_max.
         range_w: ... 
         patchSize = 64: size of the cropped squared patch.
         pyramidRate = 1.2: sampling rate between the adjacent pyramid layers.
@@ -179,7 +179,7 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
     >>> imgs_np.shape
     (1, 225, 225, 3)
     >>> range_h = np.array([[115,90,115,20], [125, 150, 125, 220]]).T     # (4,2), center_h = 120
-    >>> range_w = np.array([[110,115,70,115], [130,125,170,125]]).T    # (4,2), center_h = 120
+    >>> range_w = np.array([[110,115,70,115], [130,125,170,125]]).T    # (4,2), center_w = 120
     >>> img = imgs_np[0]
     >>> hw = img.shape[0]
     >>> patches = cropImgPatches(img = img, range_h = range_h, range_w = range_w, patchSize = 64, pyramidRate = 2, interp_order = 0)
@@ -203,6 +203,14 @@ def cropImgPatches(img, range_h, range_w, patchSize = 64, pyramidRate = 1.2, int
     >>> np.allclose(patches_identical[1], patches_identical[2])
     True
     >>> np.allclose(patches_identical[2], patches_identical[3])
+    True
+    
+    # out of range indexing:
+    >>> img += np.random.randint(0, 128, img.shape).astype(np.uint8) # easy to check
+    >>> range_h = np.array([[-2], [10]]).T     # center_h = 4
+    >>> range_w = np.array([[-6], [0]]).T    # center_w = -3
+    >>> patches = cropImgPatches(img = img, range_h = range_h, range_w = range_w, patchSize = 10, pyramidRate = 1, interp_order = 2)  # can print out patches to check
+    >>> np.array_equal(patches[0, 1:9, 0, 0], img[0:8, 0, 0])
     True
     """
 

@@ -3,7 +3,7 @@ import utils
 import image
 
 
-def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize, batchSize):
+def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize, batchSize, check_inScope = True):
     """
     given the imgs and the cubeCorners' projection, return the patches' embeddings.
 
@@ -14,6 +14,7 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
         patch2embedding_fn: CNN embedding function
         D_embedding: dim of the embedding
         img_h_cubesCorner, img_w_cubesCorner: (N_views, N_cubes, 8)
+        check_inScope: if True, only calculate the inscope patches' embeddings; if False, calculate all.
 
     --------------
     outputs:
@@ -31,7 +32,10 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
 
     for _view, _image in enumerate(images_list):      # patch size determined by the SimilarityNet
         _img_h, _img_w, _img_c = _image.shape
-        _inScope = image.img_hw_cubesCorner_inScopeCheck(hw_shape = (_img_h, _img_w), img_h_cubesCorner = img_h_cubesCorner[_view], img_w_cubesCorner = img_w_cubesCorner[_view])   # (N_cubes,) inScope check and select perticular _logRatio_int. 
+        if check_inScope:
+            _inScope = image.img_hw_cubesCorner_inScopeCheck(hw_shape = (_img_h, _img_w), img_h_cubesCorner = img_h_cubesCorner[_view], img_w_cubesCorner = img_w_cubesCorner[_view])   # (N_cubes,) inScope check and select perticular _logRatio_int. 
+        else:
+            _inScope = np.ones((N_cubes, )).astype(np.bool)
         inScope_cubes_vs_views[:,_view] = _inScope
         N_cubes_inScope = _inScope.sum()
         if not N_cubes_inScope:   # if there is no inScope patch, just return None.

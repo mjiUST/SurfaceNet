@@ -51,7 +51,7 @@ if __name__ == "__main__":
         ####################
         # train SurfaceNet #
         ####################
-        N_modelCubes_train = 1000 # Sample such NO. of cubes for each cube. 1000 is too large to loop through all the training models in reasonable time.
+        N_modelCubes_train = 100 # Sample such NO. of cubes for each cube. 1000 is too large to loop through all the training models in reasonable time.
         N_modelCubes_val = 100
 
         # by default, load the saved model (or None)

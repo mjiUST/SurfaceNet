@@ -8,7 +8,7 @@ import scipy.io
 
 # "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__debug = True     # If True: less models / views / batches
+__debug = False     # If True: less models / views / batches
 __define_fns = True
 __silentLog = True  # If False, the loaded images and pts_file
 
@@ -19,7 +19,7 @@ __output_data_rootFld = "./outputs"
 
 
 __DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
-__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV"
+__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet"
 __DEBUG_input_data_rootFld_exists = os.path.exists(__DEBUG_input_data_rootFld)
 __DEBUG_output_data_rootFld_exists = os.path.exists(__DEBUG_output_data_rootFld)
 __input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_exists else __input_data_rootFld
@@ -31,7 +31,7 @@ debug_BB = False
 
 
 # TODO tune, gpuarray.preallocate=0.95 / -1 
-__batchSize_similNet_patch2embedding_perGB = 300
+__batchSize_similNet_patch2embedding_perGB = 30
 __batchSize_similNet_embeddingPair2simil_perGB = 100000
 __batchSize_viewPair_w_perGB = 100000     
 
@@ -116,7 +116,7 @@ elif whatUWant is "train_model":
 
     __train_ON = True  # will have error / stop after validation
     __val_ON = True
-    __use_pretrained_model = False
+    __use_pretrained_model = True
     __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
     __sameTrainValSamples4visual = True     # If True, only train (overfit) on the same validation set.
     __train_SurfaceNet_wo_offSurfacePts = False  # If False, remember to specify the pretrained model, otherwise will train from scratch
@@ -167,7 +167,7 @@ elif whatUWant is "train_model":
         elif __train_SurfaceNet_with_offSurfacePts:     # load model w/o off surface pts. /OR/ continue to train with offSurfacePts 
             __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
         elif __train_SurfaceNet_with_SimilarityNet:   # if ONLY train SurfaceNet + SimilarityNet
-            __pretrained_SurfaceNet_model_file = 'SurfaceNet_models/wo_offSurfacePts-19-0.918_0.951.model'
+            __pretrained_SurfaceNet_model_file = 'backup_models/stage1-epoch0_4-0.781_0.754.model'
 
         __pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
         # __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
