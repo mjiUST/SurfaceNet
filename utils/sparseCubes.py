@@ -7,7 +7,7 @@ import camera
 from plyfile import PlyData, PlyElement
 
 def dense2sparse(prediction, rgb, param, min_prob = 0.5, rayPool_thresh = 0, \
-        enable_centerCrop = False, cube_Dcenter = None, \
+        enable_centerCrop = False, cube_Dcenter = None, cube_was_cropped = False,
         enable_rayPooling = False, viewPair = None, cameraPOs = None, cameraTs = None):
     """
     convert dense prediction / rgb to sparse representation
@@ -49,9 +49,15 @@ def dense2sparse(prediction, rgb, param, min_prob = 0.5, rayPool_thresh = 0, \
     
     slc = np.s_[:,:,:] # select all in first 3 dims
     if enable_centerCrop:
+        cube_was_cropped = True
         _Cmin, _Cmax = (D_orig-cube_Dcenter)/2, (D_orig-cube_Dcenter)/2 + cube_Dcenter 
         # np.s_[_Cmin:_Cmax,_Cmin:_Cmax,_Cmin:_Cmax]
         slc = (slice(_Cmin, _Cmax, 1),)*3 # np.s_[1:6] = slice(1,6)
+    if cube_was_cropped: # if the cubes are cropped, should align the 'min_xyz' to the final cropped cube.
+        if not '_Cmin' in locals():  # the cube was cropped before the function call
+            D_orig = param['cube_D'][0]
+            cube_Dcenter = prediction.shape[1]
+            _Cmin, _Cmax = (D_orig-cube_Dcenter)/2, (D_orig-cube_Dcenter)/2 + cube_Dcenter 
         # shift the min_xyz of the center_cropped cubes
         param_new['min_xyz'] += param_new['resolution'][:, None] * _Cmin # (N_cubes, 3) + (N_cubes,1) = (N_cubes, 3)
 
@@ -130,6 +136,7 @@ def sparse2dense(coords_list, value_list, coords_shape = None, default_value = 0
 
 def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub = None, min_prob = 0.5, rayPool_thresh = 0, \
         enable_centerCrop = False, cube_Dcenter = None, \
+        cube_was_cropped = False,
         enable_rayPooling = False, cameraPOs = None, cameraTs = None, \
         prediction_list = [], rgb_list = [], vxl_ijk_list = [], rayPooling_votes_list = [], \
         cube_ijk_np = None, param_np = None, viewPair_np = None):
@@ -170,6 +177,7 @@ def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub = 
     sparse_output = dense2sparse(prediction = prediction_sub, rgb = rgb_sub, param = param_sub,\
             viewPair = viewPair_sub, min_prob = 0.5, rayPool_thresh = rayPool_thresh,\
             enable_centerCrop = enable_centerCrop, cube_Dcenter = cube_Dcenter,\
+            cube_was_cropped = cube_was_cropped,
             enable_rayPooling = enable_rayPooling, cameraPOs = cameraPOs, cameraTs = cameraTs)
     nonempty_cube_indx_sub, vxl_ijk_sub_list, prediction_sub_list, \
             rgb_sub_list, rayPooling_sub_votes_list, param_new_sub = sparse_output

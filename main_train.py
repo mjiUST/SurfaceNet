@@ -56,11 +56,12 @@ def loadFixedVar_4training():
 
 
 def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images_list,
-        dense_gt, N_batches = None, augment_ON = True):
+        dense_gt, N_batches = None, augment_ON = True, rand_viewPairs_ON = True):
     """
     fetch minibatches
     If N_batches is None: loop through each cube param onece. (for validation / testing)
         else: randomly select cubes in each batch. (for training)
+    If rand_viewPairs_ON is True: randomly select view pairs; otherwise, evenly sample from the view pairs set.
     """
 
     N_cubes = cube_param.shape[0]
@@ -75,12 +76,13 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
     for selector in selectors_np:
         N_selector = batchSize if N_batches else selector.sum()
         # generate CVC
-        rand_viewPairs_index = np.random.randint(0, N_combinations, (N_selector, N_viewPairs))
-        rand_viewPairs = viewPairs_all[rand_viewPairs_index] # (N_selector, N_viewPair, 2) randomly select viewPairs for each cube
-        # rand_viewPairs = np.random.randint(0, len(params.__viewList), (N_selector, N_viewPairs, 2)) # (N_selector, N_viewPair, 2) randomly select viewPairs for each cube
+        viewPairs_index = np.random.randint(0, N_combinations, (N_selector, N_viewPairs)) if rand_viewPairs_ON \
+                else np.arange(N_combinations)[::N_combinations/N_viewPairs][:N_viewPairs][None].repeat(N_selector, axis=0)
+        viewPairs = viewPairs_all[viewPairs_index] # (N_selector, N_viewPair, 2) randomly select viewPairs for each cube
+        # viewPairs = np.random.randint(0, len(params.__viewList), (N_selector, N_viewPairs, 2)) # (N_selector, N_viewPair, 2) randomly select viewPairs for each cube
         # dtype = uint8
         _CVCs1_sub, images_slice = CVC.gen_models_coloredCubes( \
-                viewPairs = rand_viewPairs,
+                viewPairs = viewPairs,
                 cube_params = cube_param[selector],
                 cameraPOs = cameraPOs_np,
                 models_img_list = images_list,
@@ -93,7 +95,7 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
         _nRGB_CVCs_sub = _CVCs1_sub.reshape((N_selector, N_viewPairs, 2, 3) + _CVCs1_sub.shape[-3:])
         _nRGB_CVCs_sub = _nRGB_CVCs_sub.mean(axis = 2) # (N_cubes, N_viewPairs, 3, D,D,D)
 
-        yield selector, rand_viewPairs, rand_viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice
+        yield selector, viewPairs, viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice
 
 
 
@@ -205,9 +207,10 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                             batchSize_patch2embedding = params.__batchSize_similNet_patch2embedding,
                             patch2embedding_fn = patch2embedding_fn) # (N_cubes, N_views, D_embedding)
 
-                for _batch, (selector, rand_viewPairs, rand_viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
+                for _batch, (selector, viewPairs, viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
                         N_batches = N_batches_train, # random selection in each iteration
                         batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param = cube_param_train,
+                        rand_viewPairs_ON = True,
                         cameraPOs_np = cameraPOs_np, images_list = images_list_train, dense_gt = dense_gt_train), max_prefetch=1)):
 
                     start_time_batch = time.time()
@@ -216,8 +219,8 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         viewPairs_featureVec = utils.generate_viewPairs_featureVec( \
                                 theta_viewPairs_all = theta_viewPairs[selector],
                                 patches_embedding = patches_embedding[selector],
-                                viewPairs = rand_viewPairs, # (N_cubes, N_viewPairs, 2)
-                                rand_viewPairs_index = rand_viewPairs_index, # (N_cubes, N_viewPairs)
+                                viewPairs = viewPairs, # (N_cubes, N_viewPairs, 2)
+                                viewPairs_index = viewPairs_index, # (N_cubes, N_viewPairs)
                                 D_featureVec = params.__D_viewPairFeature,
                                 batchSize_embeddingPair2simil = params.__batchSize_similNet_embeddingPair2simil,
                                 embeddingPair2simil_fn = embeddingPair2simil_fn
@@ -242,7 +245,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         # move these print log from other threads to the main thread
 
             val_acc = 0
-            if params.__val_ON and (_iter == N_iters): # at the end of epoches. ((_iter % 2) == 0): every N modelSet
+            if params.__val_ON and (_iter == N_iters-1): # at the end of epoches. ((_iter % 2) == 0): every N modelSet
                 val_acc_batches = []
                 # loop through all the models in the modelList_val. Load & process one-by-one to save memory.
                 for _, (_iter_val, N_iters_val, images_list_val, cube_param_val, dense_gt_val, modelList_2load, record_lastLightCondition4models) in \
@@ -276,9 +279,10 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                                 patch2embedding_fn = patch2embedding_fn) # (N_cubes, N_views, D_embedding)
 
                     N_cubes_val = dense_gt_val.shape[0]
-                    for _batch, (selector, rand_viewPairs, rand_viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
+                    for _batch, (selector, viewPairs, viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
                             N_batches = None,  # test all the samples rather than random selection
                             augment_ON = False,
+                            rand_viewPairs_ON = False, # evenly sample from viewPairs set, rather than randomly select
                             batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
                             cameraPOs_np = cameraPOs_np, images_list = images_list_val, dense_gt = dense_gt_val), max_prefetch=1)):
 
@@ -286,8 +290,8 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                             viewPairs_featureVec = utils.generate_viewPairs_featureVec( \
                                     theta_viewPairs_all = theta_viewPairs[selector],
                                     patches_embedding = patches_embedding[selector],
-                                    viewPairs = rand_viewPairs, # (N_cubes, N_viewPairs, 2)
-                                    rand_viewPairs_index = rand_viewPairs_index, # (N_cubes, N_viewPairs)
+                                    viewPairs = viewPairs, # (N_cubes, N_viewPairs, 2)
+                                    viewPairs_index = viewPairs_index, # (N_cubes, N_viewPairs)
                                     D_featureVec = params.__D_viewPairFeature,
                                     batchSize_embeddingPair2simil = params.__batchSize_similNet_embeddingPair2simil,
                                     embeddingPair2simil_fn = embeddingPair2simil_fn
@@ -307,6 +311,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                                     prediction_sub = val_predict, rgb_sub = val_rgb_sub, param_sub = cube_param_val[selector],
                                     min_prob = 0.5, cube_ijk_np = 'N/A', # don't process cube_ijk information
                                     enable_centerCrop = False, enable_rayPooling = False,
+                                    cube_was_cropped = True, # will shift the cubes' 'min_xyz' value
                                     prediction_list = prediction_list, rgb_list = rgb_list, vxl_ijk_list = vxl_ijk_list,
                                     param_np = param_np)
                             prediction_list, rgb_list, vxl_ijk_list, _,  _, param_np, _ = updated_sparse_list_np
@@ -325,7 +330,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                 print("val_acc %g" %(val_acc))
 
 
-            if _iter == N_iters:
+            if _iter == N_iters-1:
                 modelFileName = 'stage{}-epoch{}_{}-{:0.3}_{:0.3}.model'.format(trainingStage, \
                         epoch, _iter, train_acc, val_acc)
                 modelFilePath = utils_nets.save_entire_model(net[layer_2_save_model], 

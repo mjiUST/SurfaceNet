@@ -88,7 +88,7 @@ def generate_1model_patches_embedding( \
 
 def generate_viewPairs_featureVec( \
         theta_viewPairs_all, patches_embedding,
-        viewPairs, rand_viewPairs_index,
+        viewPairs, viewPairs_index,
         D_featureVec, batchSize_embeddingPair2simil,
         embeddingPair2simil_fn):
     """
@@ -96,7 +96,7 @@ def generate_viewPairs_featureVec( \
 
     inputs:
         viewPairs: (N_cubes, N_viewPairs, 2) each cube have specific viewPairs
-        rand_viewPairs_index: (N_cubes, N_viewPairs) index of the corresponding viewPairs in the `utils.k_combination_np(range(N_views), k = 2)`
+        viewPairs_index: (N_cubes, N_viewPairs) index of the corresponding viewPairs in the `utils.k_combination_np(range(N_views), k = 2)`
         theta_viewPairs_all: (N_cubes, N_viewPairs)
         patches_embedding: (N_cubes, N_views, D_embedding)
 
@@ -118,7 +118,7 @@ def generate_viewPairs_featureVec( \
     # (N_cubes, N_views, D_embedding) --> (N_cubes, N_viewPairs, 2 * D_embedding)
     e_viewPairs = patches_embedding[(index_axis0, index_axis1)].reshape((N_cubes, N_viewPairs, -1))
     theta_viewPairs = theta_viewPairs_all[..., None][(np.arange(N_cubes)[..., None].repeat(N_viewPairs, axis=1), 
-            rand_viewPairs_index)]
+            viewPairs_index)]
     viewPairs_featureVec = np.concatenate([e_viewPairs, d_viewPairs[..., None], theta_viewPairs], axis=-1).astype(np.float32) # (N_cubes, N_viewPairs, D_featureVec)
     return viewPairs_featureVec.reshape((N_cubes * N_viewPairs, D_featureVec)).astype(np.float32)
 

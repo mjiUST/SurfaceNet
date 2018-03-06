@@ -8,7 +8,7 @@ import scipy.io
 
 # "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__debug = False     # If True: less models / views / batches
+__debug = True     # If True: less models / views / batches
 __define_fns = True
 __silentLog = True  # If False, the loaded images and pts_file
 
@@ -144,7 +144,7 @@ elif whatUWant is "train_model":
     __chunk_len_train = 6
     __chunk_len_val = 6
     __N_viewPairs4train = 6
-    __N_epoches = [1000, 1000, 1000] if __debug else [2, 2, 2]
+    __N_epoches = [1000, 1000, 1000] if __debug else [20, 20, 20]
     __viewList = range(1, 5 if __debug else 50)  # only use the first 49 views for training
 
     # training function params:
