@@ -34,7 +34,7 @@ def load_dnn_fns(with_relativeImpt, SurfaceNet_model_path = None, SimilarityNet_
     outputDic = {'net': net, 'train_fn': train_fn, 'val_fn': val_fn, 'lr_tensor': lr_tensor}
 
     # TODO: define and load SimilarityNet
-    if not SimilarityNet_model_path is 'N/A':
+    if not SimilarityNet_model_path == 'N/A':
         patch2embedding_fn, embeddingPair2simil_fn = SimilarityNet.SimilarityNet_inference(
                 model_path = SimilarityNet_model_path,
                 imgPatch_hw_size = (params.__imgPatch_hw_size, )*2 )

@@ -2,8 +2,10 @@ import numpy as np
 import utils
 import image
 
+from prefetch_generator import BackgroundGenerator, background  # https://github.com/justheuristic/prefetch_generator
 
-def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize, batchSize, check_inScope = True):
+
+def prepare_patchBatches(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize, batchSize, check_inScope = True):
     """
     given the imgs and the cubeCorners' projection, return the patches' embeddings.
 
@@ -25,7 +27,6 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
     N_views, N_cubes = img_h_cubesCorner.shape[:2]
     # since the images' size may be different, some numpy array operations upon multiple images cannot be used. Just loop through the view image.
     inScope_cubes_vs_views = np.zeros((N_cubes, N_views), dtype=np.bool)    # bool indicator matrix (N_cubes, N_views)
-    patches_embedding = np.zeros((N_cubes, N_views, D_embedding), dtype=np.float32)     # (N_cubes, N_views, D_embedding)
 
     projection_h_range = np.stack([img_h_cubesCorner.min(axis=-1), img_h_cubesCorner.max(axis=-1)], axis=-1)  # (N_views, N_cubes, 8) --> (N_views, N_cubes) --> (N_views, N_cubes, 2)
     projection_w_range = np.stack([img_w_cubesCorner.min(axis=-1), img_w_cubesCorner.max(axis=-1)], axis=-1)
@@ -41,11 +42,49 @@ def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2emb
         if not N_cubes_inScope:   # if there is no inScope patch, just return None.
             continue
         else:
-            _patches_embedding_inScope = np.zeros((N_cubes_inScope, D_embedding), dtype=np.float32)     # (N_cubes_inScope, N_views, D_embedding)
             _patches = image.cropImgPatches(img = _image, range_h = projection_h_range[_view][_inScope], range_w = projection_w_range[_view][_inScope], patchSize = patchSize, pyramidRate = 1, interp_order = 2)  # (N_cubes_inScope, patchSize, patchSize, 3/1)
             _patches_preprocessed = image.preprocess_patches(_patches.astype(np.float32), mean_BGR = patches_mean_bgr)
-            for _batch in utils.yield_batch_npBool(N_all = N_cubes_inScope, batch_size = batchSize):      # note that bool selector: _batch.shape == (N_cubes,)
-                _patches_embedding_inScope[_batch] = patch2embedding_fn(_patches_preprocessed[_batch])     # (N_batch, 3/1, patchSize, patchSize) --> (N_batch, D_embedding). SimilarityNet: patch --> embedding
+            batches = utils.gen_batch_npBool(N_all = N_cubes_inScope, batch_size = batchSize)
+            N_batches = len(batches)
+            for _batchIndex, _batch in enumerate(batches):      # note that bool selector: _batch.shape == (N_cubes,)
+                yield _patches_preprocessed[_batch], _inScope, _view, _batchIndex, _batch, N_batches, inScope_cubes_vs_views
+
+
+def patch2embedding(images_list, img_h_cubesCorner, img_w_cubesCorner, patch2embedding_fn, patches_mean_bgr, D_embedding, patchSize, batchSize, check_inScope = True):
+    """
+    given the imgs and the cubeCorners' projection, return the patches' embeddings.
+
+    --------------
+    inputs:
+        images_list: [(img_h,img_w,3/1), (img_h',img_w',3/1), ...]. list of view images. 
+        img_h/w_cubesCorner: (N_views, N_cubes, 8). projectioin of the cubes' corners
+        patch2embedding_fn: CNN embedding function
+        D_embedding: dim of the embedding
+        img_h_cubesCorner, img_w_cubesCorner: (N_views, N_cubes, 8)
+        check_inScope: if True, only calculate the inscope patches' embeddings; if False, calculate all.
+
+    --------------
+    outputs:
+        patches_embedding: (N_cubes, N_views, D_embedding), np.float32
+        inScope_cubes_vs_views: (N_cubes, N_views), np.bool
+    """
+
+    N_views, N_cubes = img_h_cubesCorner.shape[:2]
+    patches_embedding = np.zeros((N_cubes, N_views, D_embedding), dtype=np.float32)     # (N_cubes, N_views, D_embedding)
+    Current_viewIndex = -1
+    for (_patches, _inScope, _view, _batchIndex, _batch, N_batches, inScope_cubes_vs_views) in BackgroundGenerator(prepare_patchBatches(images_list, 
+            img_h_cubesCorner, img_w_cubesCorner, 
+            patch2embedding_fn, 
+            patches_mean_bgr, 
+            D_embedding, patchSize, batchSize, 
+            check_inScope)):
+
+        N_cubes_inScope = _inScope.sum()
+        if _view != Current_viewIndex: # initialize
+            Current_viewIndex = _view
+            _patches_embedding_inScope = np.zeros((N_cubes_inScope, D_embedding), dtype=np.float32)     # (N_cubes_inScope, N_views, D_embedding)
+        _patches_embedding_inScope[_batch] = patch2embedding_fn(_patches)     # (N_batch, 3/1, patchSize, patchSize) --> (N_batch, D_embedding). SimilarityNet: patch --> embedding
+        if _batchIndex == N_batches-1: # end of this view that was divided into multiple batches
             patches_embedding[_inScope, _view] = _patches_embedding_inScope    # try to avoid index chain for assignment: a[xx][xx]=xx
     return patches_embedding, inScope_cubes_vs_views 
 
