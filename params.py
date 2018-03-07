@@ -150,7 +150,7 @@ elif whatUWant is "train_model":
     # training function params:
     __lr = 5
     __lr_decay_per_N_epoch = 100
-    __lr_decay = float(0.1)    # np.array([0.1]).astype(np.float32)
+    __lr_decay = np.array(0.1).astype(np.float32)
 
     __trainable_layerRange_with_SimilarityNet = ("feature_input", "output_softmaxWeights")
     __trainable_layerRange_wo_SimilarityNet = None
