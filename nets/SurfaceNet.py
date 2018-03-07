@@ -330,14 +330,14 @@ def SurfaceNet_trainVal(with_relativeImpt, pretrained_model_path):
             N_viewPairs = params.__N_viewPairs4train, \
             default_lr = lr_tensor, \
             input_cube_size = params.__cube_D, \
-            D_viewPairFeature = params.__similNet_features_dim, \
+            D_viewPairFeature = params.__D_viewPairFeature, \
             num_hidden_units = params.__similNet_hidden_dim, \
             return_train_fn = params.__train_ON, \
             return_val_fn = params.__val_ON, \
             with_relativeImpt = with_relativeImpt, \
             )
 
-    if not (pretrained_model_path is None):
+    if not (pretrained_model_path == 'N/A'):
         print ('loading volumeNet / fusionNet model: {}'.format(pretrained_model_path))
         layers_2_load_model = [net[_layer_name] for _layer_name in params.__layerList_2_loadModel]
 
