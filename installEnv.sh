@@ -32,7 +32,8 @@ fi
 . activate $conda_env_name      # seperate environment. Can use command `which python` to check the path of the local python/packeges
 
 # install packeges
-conda install theano pygpu --yes    # http://www.deeplearning.net/software/theano/install_ubuntu.html#requirements-installation-through-conda-recommended
+conda install -c rdonnelly theano -y  # 0.9.0 version theano
+conda install pygpu --yes    # http://www.deeplearning.net/software/theano/install_ubuntu.html#requirements-installation-through-conda-recommended
 pip install --upgrade https://github.com/Lasagne/Lasagne/archive/master.zip    # http://lasagne.readthedocs.io/en/latest/user/installation.html#bleeding-edge-version
 pip install plyfile progressbar
 
