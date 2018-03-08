@@ -8,6 +8,10 @@ The [poster pdf](https://www.researchgate.net/publication/321126305_ICCV2017_Sur
 
 1. install [Nvidia driver 375 + cuda 8.0 + cudnn v5.1](https://github.com/mjiUST/driver_cuda_cudnn)
 2. install the conda environment by: `bash installEnv.sh`
+    * DON'T WORRY, conda will generate an isolated environment for SurfaceNet with python2.7, anaconda, theano, ... etc. That means all your libraries / packeges' version will not be affacted, at the same time the `~/.bashrc` file will not be changed.
+    * before you run, PLEASE change the CUDA/CUDNN path in the files: 
+        - `./config/activate-cuda.sh` change the 1st line to your cuda path, e.g.: `export CUDA_ROOT=/usr/local/cuda`
+        - `./config/activate-cudnn.sh` change the 1st line to your cudnn path, e.g.: `export CUDNN_ROOT=/home/<your-user-name>/libs/cudnn`
 3. download the network model to the folder "./inputs/SurfaceNet_models" from the Dropbox [folder](https://www.dropbox.com/sh/8xs0u57ikj4qfvr/AADRQFQyJfG3WfH7ZvpcWmMKa?dl=0)
 4. if the conda environment has been installed, one can activate it by: `. activate SurfaceNet`; deactivate it by: `. deactivate`.
 5. in terminal run: `python main.py` 
