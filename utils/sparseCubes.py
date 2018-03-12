@@ -118,9 +118,9 @@ def append_dense_2sparseList(prediction_sub, rgb_sub, param_sub, viewPair_sub, m
     cube_ijk_sub = param_sub['ijk']
     viewPair_sub = viewPair_sub.astype(np.uint16) # (N,N_viewPairs,2)
     sparse_output = dense2sparse(prediction = prediction_sub, rgb = rgb_sub, param = param_sub,\
-            viewPair = viewPair_sub, min_prob = 0.5, rayPool_thresh = rayPool_thresh,\
-            enable_centerCrop = True, cube_Dcenter = cube_Dcenter,\
-            enable_rayPooling = True, cameraPOs = cameraPOs, cameraTs = cameraTs)
+            viewPair = viewPair_sub, min_prob = min_prob, rayPool_thresh = rayPool_thresh,\
+            enable_centerCrop = enable_centerCrop, cube_Dcenter = cube_Dcenter,\
+            enable_rayPooling = enable_rayPooling, cameraPOs = cameraPOs, cameraTs = cameraTs)
     nonempty_cube_indx_sub, vxl_ijk_sub_list, prediction_sub_list, \
             rgb_sub_list, rayPooling_sub_votes_list, param_new_sub = sparse_output
     param_sub = param_new_sub[nonempty_cube_indx_sub]
