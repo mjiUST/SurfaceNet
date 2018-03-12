@@ -73,10 +73,10 @@ def readCameraPOs_as_np(datasetFolder, datasetName, poseNamePattern, model, view
 
     if 'Middlebury' in datasetName:
         cameraPOs = __readCameraPOs_as_np_Middlebury__(cameraPO_file = os.path.join(datasetFolder, poseNamePattern), viewList=viewList)
-    else:
+    else: # cameraPOs are stored in different files
         for _i, _view in enumerate(viewList):
-            if 'DTU' in datasetName:
-                _cameraPO = __readCameraPO_as_np_DTU__(cameraPO_file = os.path.join(datasetFolder, poseNamePattern.replace('#', '{:03}'.format(_view))))
+            # if 'DTU' in datasetName:
+            _cameraPO = __readCameraPO_as_np_DTU__(cameraPO_file = os.path.join(datasetFolder, poseNamePattern.replace('#', '{:03}'.format(_view)).replace('@', '{}'.format(_view))))
             cameraPOs[_i] = _cameraPO
     return cameraPOs
 

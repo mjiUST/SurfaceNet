@@ -58,6 +58,7 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
     inputs:
         datasetFolder: where the dataset locates
         imgNamePattern: different dataset have different name patterns for images. Remember to include the subdirecteries, e.g. "x/x/xx.png"
+                Replace '#' --> '{:03}'; '@' --> '{}'
         viewList: list the view index, such as [11, 1, 30, 6]
         return_list: True.  Return list if true else np.
 
@@ -79,7 +80,8 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True):
     imgs_list = []
 
     for i, viewIndx in enumerate(viewList):
-        imgPath = os.path.join(datasetFolder, imgNamePattern.replace('#', '{:03}'.format(viewIndx)))  # we assume the name pattern looks like 'x/x/*001*.xxx', if {:04}, add one 0 in the pattern: '*0#*.xxx'
+        # we assume the name pattern looks like 'x/x/*001*.xxx', if {:04}, add one 0 in the pattern: '*0#*.xxx'
+        imgPath = os.path.join(datasetFolder, imgNamePattern.replace('#', '{:03}'.format(viewIndx)).replace('@', '{}'.format(viewIndx))) 
         img = scipy.misc.imread(imgPath)    # read as np array
         imgs_list.append(img)
         print('loaded img ' + imgPath)

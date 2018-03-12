@@ -9,7 +9,7 @@ import scipy.io
 # "reconstruct_model"
 whatUWant = "reconstruct_model"
 
-__datasetName = 'Middlebury'  # Middlebury / DTU
+__datasetName = 'people'  # Middlebury / DTU / people
 __GPUMemoryGB = 12  # how large is your GPU memory (GB)
 __input_data_rootFld = "./inputs"
 __output_data_rootFld = "./outputs"
@@ -43,6 +43,8 @@ if whatUWant is "reconstruct_model":
         __modelList = [9]     # [3,18,..]
     elif __datasetName is 'Middlebury':
         __modelList = ["dinoSparseRing"]     # ["dinoSparseRing", "..."]
+    elif __datasetName is 'people':
+        __modelList = ["T_samba"]     # ["D_bouncing", "T_samba", "..."]
 
     __cube_D = 64 #32/64 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
     __min_prob = 0.46 # in order to save memory, filter out the voxels with prob < min_prob
@@ -127,7 +129,7 @@ def load_modelSpecific_params(datasetName, model):
     This function only assign different params associated with different model in each reconstrction loop.
     ----------
     inputs:
-        datasetName: such as "DTU" / "Middlebury" ... 
+        datasetName: such as "DTU" / "Middlebury" / "people" ... 
         model: such as 3 / "dinoSparseRing" / ...
     outputs:
         datasetFolder: root folder of this dataset
@@ -163,6 +165,15 @@ def load_modelSpecific_params(datasetName, model):
             viewList = range(7,13) #range(1,16)
         else:
             raise Warning('current model is unexpected: '+model+'.') 
+
+    if datasetName is "people":
+        datasetFolder = os.path.join(__input_data_rootFld, 'people')
+        imgNamePattern = "{}/images/Image@_0002.png".format(model)   # replace # to {:03}, relace @ to {}
+        poseNamePattern = "{}/calibration/Camera@.Pmat.cal".format(model)
+        N_viewPairs4inference = [2]
+        resol = np.float32(0.01) # 0.00025 resolution / the distance between adjacent voxels
+        BB = [(0.2091, 0.5904), (0.0327, 1.7774), (-0.3977, 0.3544)]
+        viewList = range(1,5) #range(1,9)
     return datasetFolder, imgNamePattern, poseNamePattern, N_viewPairs4inference, resol, np.array(BB, dtype=np.float32), viewList
 
 
