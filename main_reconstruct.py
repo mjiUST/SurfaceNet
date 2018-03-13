@@ -25,7 +25,7 @@ import denoising
 
 
 
-def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, outputFolder, N_viewPairs4inference, resol, BB, viewList):
+def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, initialPtsNamePattern, outputFolder, N_viewPairs4inference, resol, BB, viewList):
     """
     pipeline for reconstruction
     inputs: 
@@ -33,6 +33,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
         model: 2 / 5 / "dinoSparseRing" ...
         imgNamePattern:
         poseNamePattern:
+        initialPtsNamePattern: if None: initialize from BB; otherwise initialize from this initialPts
         outputFolder:
         N_viewPairs4inference:
         resol:
@@ -48,7 +49,15 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, output
     images_list = image.readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern, viewList = viewList, return_list = True)     
     cameraPOs_np = camera.readCameraPOs_as_np(datasetFolder = datasetFolder, datasetName = params.__datasetName, poseNamePattern = poseNamePattern, model = model, viewList = viewList)  # (N_views, 3, 4) np
     cameraTs_np = camera.cameraPs2Ts(cameraPOs = cameraPOs_np)  # (N_views, 3) np
-    cubes_param_np, cube_D_mm = scene.initializeCubes(resol = resol, cube_D = cube_D, cube_Dcenter = params.__cube_Dcenter, cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)  # (N_cubes,N_params), scalar. the scene is divided into multiple overlapping cubes, each of which has several attributes, such as param_np["xyz"/"ijk"/"resol"]
+    if initialPtsNamePattern is None:
+        cubes_param_np, cube_D_mm = scene.initializeCubes(resol = resol, cube_D = cube_D, 
+                cube_Dcenter = params.__cube_Dcenter, 
+                cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)  # (N_cubes,N_params), scalar. the scene is divided into multiple overlapping cubes, each of which has several attributes, such as param_np["xyz"/"ijk"/"resol"]
+    else:
+        initial_pts_xyz = scene.readPointCloud_xyz(pointCloudFile = os.path.join(datasetFolder, initialPtsNamePattern))
+        cubes_param_np, cube_D_mm = scene.quantizePts2Cubes(pts_xyz = initial_pts_xyz, resol = resol, cube_D = cube_D, \
+              cube_Dcenter = params.__cube_Dcenter,
+              cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)
     img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner(projection_M = cameraPOs_np, cube_xyz_min = cubes_param_np['xyz'], cube_D_mm = cube_D_mm, return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes, 8)
     img_h_cubesCenter, img_w_cubesCenter = camera.perspectiveProj(projection_M = cameraPOs_np, \
             xyz_3D = cubes_param_np['xyz'] + cube_D_mm/2, \

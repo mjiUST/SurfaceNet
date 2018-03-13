@@ -140,6 +140,7 @@ def load_modelSpecific_params(datasetName, model):
         BB: Bounding Box of this scene.  np(2,3) float32
         viewList: which views are used for reconstruction.
     """
+    initialPtsNamePattern = None  # if defined, the cubes position will be initialized according to these points that will be quantizated by $resolution$
 
     if datasetName is "DTU":
         datasetFolder = os.path.join(__input_data_rootFld, 'DTU_MVS')
@@ -167,13 +168,16 @@ def load_modelSpecific_params(datasetName, model):
             raise Warning('current model is unexpected: '+model+'.') 
 
     if datasetName is "people":
+        # people dataset website: http://people.csail.mit.edu/drdaniel/mesh_animation/
+        frame = 50  # [0, 50, 100, 150]
         datasetFolder = os.path.join(__input_data_rootFld, 'people')
-        imgNamePattern = "{}/images/Image@_0002.png".format(model)   # replace # to {:03}, relace @ to {}
+        imgNamePattern = "{}/images/Image@_{:04}.png".format(model, frame)   # replace # to {:03}, relace @ to {}
         poseNamePattern = "{}/calibration/Camera@.Pmat.cal".format(model)
         N_viewPairs4inference = [2]
-        resol = np.float32(0.01) # 0.00025 resolution / the distance between adjacent voxels
+        resol = np.float32(0.01) # resolution / the distance between adjacent voxels
         BB = [(0.2091, 0.5904), (0.0327, 1.7774), (-0.3977, 0.3544)]
-        viewList = range(1,5) #range(1,9)
-    return datasetFolder, imgNamePattern, poseNamePattern, N_viewPairs4inference, resol, np.array(BB, dtype=np.float32), viewList
+        initialPtsNamePattern = "{}/visualHull/vhull_8_views/{:04}.ply".format(model, frame)
+        viewList = range(1,9) #range(1,9)
+    return datasetFolder, imgNamePattern, poseNamePattern, initialPtsNamePattern, N_viewPairs4inference, resol, np.array(BB, dtype=np.float32), viewList
 
 

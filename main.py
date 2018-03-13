@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     if params.whatUWant is 'reconstruct_model':
         for _model in params.__modelList:
-            datasetFolder, imgNamePattern, poseNamePattern, N_viewPairs4inference_list, resol, BB, viewList = params.load_modelSpecific_params(datasetName=params.__datasetName, model=_model)
+            datasetFolder, imgNamePattern, poseNamePattern, initialPtsNamePattern, N_viewPairs4inference_list, resol, BB, viewList = params.load_modelSpecific_params(datasetName=params.__datasetName, model=_model)
             for N_viewPairs4inference in N_viewPairs4inference_list: # easy to loop through parameters
 
                 ###############
@@ -24,7 +24,9 @@ if __name__ == "__main__":
 
                 print('\n ********* \n model {}, N_viewPairs4inference = {} \n ********* \n'.format(_model, N_viewPairs4inference))
                 outputFolder = os.path.join(params.__output_data_rootFld, '{}_s{}/{}_{}views_Nv{}_resol{:0.3}/'.format(params.__datasetName, params.__cube_D, _model, len(viewList), N_viewPairs4inference, resol))
-                save_npz_file_path = main_reconstruct.reconstruction(datasetFolder, _model, imgNamePattern, poseNamePattern, outputFolder, N_viewPairs4inference, resol, BB, viewList)
+                save_npz_file_path = main_reconstruct.reconstruction(datasetFolder, _model, 
+                        imgNamePattern, poseNamePattern, initialPtsNamePattern, 
+                        outputFolder, N_viewPairs4inference, resol, BB, viewList)
                 # save_npz_file_path  = '/home/mengqi//fileserver/results/MVS/SurfaceNet/DTU/9_[5]_0.4/model9-49views.npz'
                 
 
