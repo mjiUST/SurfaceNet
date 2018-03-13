@@ -243,6 +243,44 @@ def filter_voxels(vxl_mask_list=[],prediction_list=None, prob_thresh=None,\
     return vxl_mask_list
 
 
+def save2ply(ply_filePath, xyz_np, rgb_np = None, normal_np = None):
+    """
+    save data to ply file, xyz (rgb, normal)
+
+    ---------
+    inputs:
+        xyz_np: (N_voxels, 3)
+        rgb_np: None / (N_voxels, 3)
+        normal_np: None / (N_voxels, 3)
+
+        ply_filePath: 'xxx.ply'
+    outputs:
+        save to .ply file
+    """
+    N_voxels = xyz_np.shape[0]
+    atributes = [('x', '<f4'), ('y', '<f4'), ('z', '<f4')]
+    if normal_np is not None:
+        atributes += [('nx', '<f4'), ('ny', '<f4'), ('nz', '<f4')]
+    if rgb_np is not None:
+        atributes += [('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
+    saved_pts = np.zeros(shape=(N_voxels,), dtype=np.dtype(atributes))
+
+    saved_pts['x'], saved_pts['y'], saved_pts['z'] = xyz_np[:,0], xyz_np[:,1], xyz_np[:,2] 
+    if rgb_np is not None:
+        saved_pts['red'], saved_pts['green'], saved_pts['blue'] = rgb_np[:,0], rgb_np[:,1], rgb_np[:,2]
+    if normal_np is not None:
+        saved_pts['nx'], saved_pts['ny'], saved_pts['nz'] = normal_np[:,0], normal_np[:,1], normal_np[:,2] 
+
+    el_vertex = PlyElement.describe(saved_pts, 'vertex')
+    outputFolder = os.path.dirname(ply_filePath)
+    if not os.path.exists(outputFolder):
+        os.makedirs(outputFolder)
+    PlyData([el_vertex]).write(ply_filePath)
+    print('saved ply file: {}'.format(ply_filePath))
+    return 1
+
+
+
 def save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
         param, ply_filePath, normal_list=None):
     """
@@ -269,6 +307,7 @@ def save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
     if normal_list is None:
         dt = np.dtype([('x', '<f4'), ('y', '<f4'), ('z', '<f4'), \
                 ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+        normal_np = None
     else:
         dt = np.dtype([('x', '<f4'), ('y', '<f4'), ('z', '<f4'), \
                 ('nx', '<f4'), ('ny', '<f4'), ('nz', '<f4'), \
@@ -282,19 +321,8 @@ def save_sparseCubes_2ply(vxl_mask_list, vxl_ijk_list, rgb_list, \
         resol = param[_cube]['resol']
         xyz_list.append(vxl_ijk_list[_cube][_select] * resol + param[_cube]['xyz'][None,:]) # (iN, 3) + (1, 3)
     xyz_np = np.vstack(xyz_list)
-    vxl_ijk_np, rgb_np = vxl_ijk_np[vxl_mask_np], rgb_np[vxl_mask_np]
-
-    saved_pts['x'], saved_pts['y'], saved_pts['z'] = xyz_np[:,0], xyz_np[:,1], xyz_np[:,2] 
-    saved_pts['red'], saved_pts['green'], saved_pts['blue'] = rgb_np[:,0], rgb_np[:,1], rgb_np[:,2]
-    if normal_list is not None:
-        saved_pts['nx'], saved_pts['ny'], saved_pts['nz'] = normal_np[:,0], normal_np[:,1], normal_np[:,2] 
-
-    el_vertex = PlyElement.describe(saved_pts, 'vertex')
-    outputFolder = '/'.join(ply_filePath.split('/')[:-1])
-    if not os.path.exists(outputFolder):
-        os.makedirs(outputFolder)
-    PlyData([el_vertex]).write(ply_filePath)
-    print('saved ply file: {}'.format(ply_filePath))
+    rgb_np = rgb_np[vxl_mask_np]
+    save2ply(ply_filePath, xyz_np, rgb_np, normal_np)
     return 1
 
 
