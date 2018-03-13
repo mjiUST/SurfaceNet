@@ -58,6 +58,7 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, initia
         cubes_param_np, cube_D_mm = scene.quantizePts2Cubes(pts_xyz = initial_pts_xyz, resol = resol, cube_D = cube_D, \
               cube_Dcenter = params.__cube_Dcenter,
               cube_overlapping_ratio = params.__cube_overlapping_ratio, BB = BB)
+    sparseCubes.save2ply(os.path.join(outputFolder, 'initialCubes.ply'), xyz_np = cubes_param_np['xyz'] + cube_D_mm/2)  # save the cube positions to ply file
     img_h_cubesCorner, img_w_cubesCorner = camera.perspectiveProj_cubesCorner(projection_M = cameraPOs_np, cube_xyz_min = cubes_param_np['xyz'], cube_D_mm = cube_D_mm, return_int_hw = False, return_depth = False)       # img_w/h_cubesCorner (N_views, N_cubes, 8)
     img_h_cubesCenter, img_w_cubesCenter = camera.perspectiveProj(projection_M = cameraPOs_np, \
             xyz_3D = cubes_param_np['xyz'] + cube_D_mm/2, \
