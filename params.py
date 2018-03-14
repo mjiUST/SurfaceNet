@@ -162,7 +162,7 @@ def load_modelSpecific_params(datasetName, model):
         if model is "dinoSparseRing":
             imgNamePattern = "{}/dinoSR0#.png".format(model)   # replace # to {:03}
             poseNamePattern = "{}/dinoSR_par.txt".format(model)
-            BB = [(-0.061897, 0.010897), (-0.018874, 0.068227), (-0.057845, 0.015495)]
+            BB = np.array([(-0.061897, 0.010897), (-0.018874, 0.068227), (-0.057845, 0.015495)], dtype=np.float32)   # np(3,2)
             viewList = range(7,13) #range(1,16)
         else:
             raise Warning('current model is unexpected: '+model+'.') 
@@ -175,9 +175,9 @@ def load_modelSpecific_params(datasetName, model):
         poseNamePattern = "{}/calibration/Camera@.Pmat.cal".format(model)
         N_viewPairs4inference = [2]
         resol = np.float32(0.01) # resolution / the distance between adjacent voxels
-        BB = [(0.2091, 0.5904), (0.0327, 1.7774), (-0.3977, 0.3544)]
+        BB = None # np.array([(0.2091, 0.5904), (0.0327, 1.7774), (-0.3977, 0.3544)], dtype=np.float32)   # np(3,2)
         initialPtsNamePattern = "{}/visualHull/vhull_8_views/{:04}.ply".format(model, frame)
-        viewList = range(1,9) #range(1,9)
-    return datasetFolder, imgNamePattern, poseNamePattern, initialPtsNamePattern, N_viewPairs4inference, resol, np.array(BB, dtype=np.float32), viewList
+        viewList = range(5,9) #range(1,9)
+    return datasetFolder, imgNamePattern, poseNamePattern, initialPtsNamePattern, N_viewPairs4inference, resol, BB, viewList
 
 
