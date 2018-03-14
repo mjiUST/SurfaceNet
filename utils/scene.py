@@ -2,6 +2,8 @@ import numpy as np
 import math
 from plyfile import PlyData, PlyElement
 
+import mesh_util
+
 def initializeCubes(resol, cube_D, cube_Dcenter, cube_overlapping_ratio, BB):
     """
     generate {N_cubes} 3D overlapping cubes, each one has {N_cubeParams} embeddings
@@ -111,6 +113,10 @@ def readPointCloud_xyz(pointCloudFile = 'xx/xx.ply'):
     pcd_xyz = np.c_[pcd['vertex']['x'], pcd['vertex']['y'], pcd['vertex']['z']]
     return pcd_xyz
 
+def readBB_fromModel(objFile = 'xx/xx.obj'):
+    mesh = mesh_util.load_obj(filename= objFile)
+    BB = np.c_[mesh.v.min(axis=0), mesh.v.max(axis=0)]  # (3, 2)
+    return BB
 
 
 import doctest
