@@ -55,12 +55,13 @@ if whatUWant is "reconstruct_model":
         # frame 40: ["T_samba"]
         # frame 50: ["flashkick", "I_crane"]
         # frame 70: ["T_samba"]  # resol: 0.005
-        # frame 100: ["pop", "I_crane"]
+        # frame 100: ["pop"]
         # frame 120: ["I_crane"]
-        __frame = 100  # [0, 50, 100, 150]
-        __modelList = ["pop", "I_crane"]     # ["D_bouncing", "T_samba", "..."]
-        __viewList = range(1, 5)  # range(1, 5)
-        __output_data_rootFld = os.path.join(__output_data_rootFld, "people/frame{}_views{}".format(__frame, __viewList))
+        __frame = 50  # [0, 50, 100, 150]
+        __modelList = ["flashkick", "I_crane"]     # ["D_bouncing", "T_samba", "..."]
+        __viewList = None # range(1, 5)  # range(1, 5)
+        __viewListList = [range(1, 5), range(3, 7), range(5, 9), [7, 8, 1, 2], 
+                [1,3,4], [3,4,6], [4,6,1], [6,1,3]]
 
     __cube_D = 64 #32/64 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
     __min_prob = 0.46 # in order to save memory, filter out the voxels with prob < min_prob
