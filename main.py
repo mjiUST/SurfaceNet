@@ -34,6 +34,8 @@ if __name__ == "__main__":
                 # adaptive threshold
                 ####################
 
+                if not os.path.exists(save_npz_file_path):
+                    continue  # Don't exist
                 kwargs = {'init_probThresh': 0.5, 'min_probThresh': 0.5, 'max_probThresh': 0.9, 'D_cube': params.__cube_Dcenter, \
                         'N_refine_iter': params.__N_refine_iter, 'save_result_fld': os.path.dirname(save_npz_file_path), \
                         'rayPool_thresh': int(round(params.__gamma * N_viewPairs4inference*2)), 'beta': params.__beta, 'gamma': params.__gamma, \

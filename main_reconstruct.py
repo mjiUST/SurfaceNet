@@ -125,6 +125,8 @@ def reconstruction(datasetFolder, model, imgNamePattern, poseNamePattern, initia
 
     batchSelectors_list = utils.gen_non0Batch_npBool(boolIndicators = validCubes, batch_size = params.__batchSize_nViewPair_SurfaceNet)
     N_batches = len(batchSelectors_list)
+    if N_batches == 0:
+        return "Empty!"
     bar = progressbar.ProgressBar(maxval=N_batches, widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
     bar.start()
     for _i, _batch in enumerate(batchSelectors_list):      # note that bool selector: _batch.shape == (N_cubes,). 
