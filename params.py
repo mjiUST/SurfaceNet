@@ -1,7 +1,11 @@
 import numpy as np
 import os
+import sys
 import math
 import scipy.io
+
+sys.path.append("./utils")
+import scene
 
 ## define the parameters that don't vary in the main function, such as the patch size and the cube size.
 ## for the parameters that may change in the different main loop through different models in a dataset, we load them use the function `load_modelSpecific_params` defined at the end of this file.
@@ -9,7 +13,7 @@ import scipy.io
 # "reconstruct_model"
 whatUWant = "reconstruct_model"
 
-__datasetName = 'Middlebury'  # Middlebury / DTU
+__datasetName = 'Middlebury'  # Middlebury / DTU / people
 __GPUMemoryGB = 12  # how large is your GPU memory (GB)
 __input_data_rootFld = "./inputs"
 __output_data_rootFld = "./outputs"
@@ -43,6 +47,20 @@ if whatUWant is "reconstruct_model":
         __modelList = [9]     # [3,18,..]
     elif __datasetName is 'Middlebury':
         __modelList = ["dinoSparseRing"]     # ["dinoSparseRing", "..."]
+    elif __datasetName is 'people':
+        # frame 0: ["head", "render_07"]
+        # frame 1: ["model_20_anim_4", "model_42_anim_8", "model_42_anim_9", "render_11"]
+        # frame 11: ["model_20_anim_4", "model_42_anim_8", "model_42_anim_9"]  # may have different resol
+        # frame 30: ["T_samba"]
+        # frame 40: ["T_samba"]
+        # frame 50: ["flashkick", "I_crane"]
+        # frame 70: ["T_samba"]  # resol: 0.005
+        # frame 100: ["pop", "I_crane"]
+        # frame 120: ["I_crane"]
+        __frame = 100  # [0, 50, 100, 150]
+        __modelList = ["pop", "I_crane"]     # ["D_bouncing", "T_samba", "..."]
+        __viewList = range(1, 5)  # range(1, 5)
+        __output_data_rootFld = os.path.join(__output_data_rootFld, "people/frame{}_views{}".format(__frame, __viewList))
 
     __cube_D = 64 #32/64 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
     __min_prob = 0.46 # in order to save memory, filter out the voxels with prob < min_prob
@@ -127,7 +145,7 @@ def load_modelSpecific_params(datasetName, model):
     This function only assign different params associated with different model in each reconstrction loop.
     ----------
     inputs:
-        datasetName: such as "DTU" / "Middlebury" ... 
+        datasetName: such as "DTU" / "Middlebury" / "people" ... 
         model: such as 3 / "dinoSparseRing" / ...
     outputs:
         datasetFolder: root folder of this dataset
@@ -138,6 +156,7 @@ def load_modelSpecific_params(datasetName, model):
         BB: Bounding Box of this scene.  np(2,3) float32
         viewList: which views are used for reconstruction.
     """
+    initialPtsNamePattern = None  # if defined, the cubes position will be initialized according to these points that will be quantizated by $resolution$
 
     if datasetName is "DTU":
         datasetFolder = os.path.join(__input_data_rootFld, 'DTU_MVS')
@@ -159,10 +178,22 @@ def load_modelSpecific_params(datasetName, model):
         if model is "dinoSparseRing":
             imgNamePattern = "{}/dinoSR0#.png".format(model)   # replace # to {:03}
             poseNamePattern = "{}/dinoSR_par.txt".format(model)
-            BB = [(-0.061897, 0.010897), (-0.018874, 0.068227), (-0.057845, 0.015495)]
+            BB = np.array([(-0.061897, 0.010897), (-0.018874, 0.068227), (-0.057845, 0.015495)], dtype=np.float32)   # np(3,2)
             viewList = range(7,13) #range(1,16)
         else:
             raise Warning('current model is unexpected: '+model+'.') 
-    return datasetFolder, imgNamePattern, poseNamePattern, N_viewPairs4inference, resol, np.array(BB, dtype=np.float32), viewList
+
+    if datasetName is "people":
+        # people dataset website: http://people.csail.mit.edu/drdaniel/mesh_animation/
+        datasetFolder = os.path.join(__input_data_rootFld, 'people/samples/mit_format_mvs_example_data_4')
+        imgNamePattern = "{}/images/Image@_{:04}.png".format(model, __frame)   # replace # to {:03}, relace @ to {}
+        poseNamePattern = "{}/calibration/Camera@.Pmat.cal".format(model)
+        BBNamePattern = "{}/meshes/mesh_{:04}.obj".format(model, __frame)
+        N_viewPairs4inference = [2]
+        resol = np.float32(0.005) # resolution / the distance between adjacent voxels
+        BB = scene.readBB_fromModel(objFile = os.path.join(datasetFolder, BBNamePattern)) # None / np.array([(0.2091, 0.5904), (0.0327, 1.7774), (-0.3977, 0.3544)], dtype=np.float32)   # np(3,2)
+        initialPtsNamePattern = None # None / "{}/visualHull/vhull_4_views_1346/{:04}.ply".format(model, __frame)
+        viewList = __viewList # range(1,5) # range(4,9) + [1] #range(1,9)
+    return datasetFolder, imgNamePattern, poseNamePattern, initialPtsNamePattern, N_viewPairs4inference, resol, BB, viewList
 
 
