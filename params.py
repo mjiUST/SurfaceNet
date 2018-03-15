@@ -49,19 +49,20 @@ if whatUWant is "reconstruct_model":
         __modelList = ["dinoSparseRing"]     # ["dinoSparseRing", "..."]
     elif __datasetName is 'people':
         # frame 0: ["head", "render_07"]
-        # frame 1: ["model_20_anim_4", "model_42_anim_8", "model_42_anim_9", "render_11"]
-        # frame 11: ["model_20_anim_4", "model_42_anim_8", "model_42_anim_9"]  # may have different resol
+        # frame 1: ["model_20_anim_4", "model_42_anim_8", "model_48_anim_9", "model_45_anim_0", "render_11"]
+        # frame 11: ["model_20_anim_4", "model_42_anim_8", "model_48_anim_9", "model_45_anim_0"]  # should have large resol: 0.5
         # frame 30: ["T_samba"]
         # frame 40: ["T_samba"]
         # frame 50: ["flashkick", "I_crane"]
         # frame 70: ["T_samba"]  # resol: 0.005
         # frame 100: ["pop"]
         # frame 120: ["I_crane"]
-        __frame = 50  # [0, 50, 100, 150]
-        __modelList = ["flashkick", "I_crane"]     # ["D_bouncing", "T_samba", "..."]
+        __frame = 11  # [0, 50, 100, 150]
+        __modelList = ["model_20_anim_4", "model_48_anim_9", "model_45_anim_0"]     # ["D_bouncing", "T_samba", "..."]
         __viewList = None # range(1, 5)  # range(1, 5)
-        __viewListList = [range(1, 5), range(3, 7), range(5, 9), [7, 8, 1, 2], 
-                [1,3,4], [3,4,6], [4,6,1], [6,1,3]]
+        __viewListList = [[1,3,4], [3,4,6], [4,6,1], [6,1,3]]
+                # [range(1, 5), range(3, 7), range(5, 9), [7, 8, 1, 2], 
+                # [1,3,4], [3,4,6], [4,6,1], [6,1,3]]
 
     __cube_D = 64 #32/64 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
     __min_prob = 0.46 # in order to save memory, filter out the voxels with prob < min_prob
@@ -191,7 +192,7 @@ def load_modelSpecific_params(datasetName, model):
         poseNamePattern = "{}/calibration/Camera@.Pmat.cal".format(model)
         BBNamePattern = "{}/meshes/mesh_{:04}.obj".format(model, __frame)
         N_viewPairs4inference = [2]
-        resol = np.float32(0.005) # resolution / the distance between adjacent voxels
+        resol = np.float32(0.5) # resolution / the distance between adjacent voxels
         BB = scene.readBB_fromModel(objFile = os.path.join(datasetFolder, BBNamePattern)) # None / np.array([(0.2091, 0.5904), (0.0327, 1.7774), (-0.3977, 0.3544)], dtype=np.float32)   # np(3,2)
         initialPtsNamePattern = None # None / "{}/visualHull/vhull_4_views_1346/{:04}.ply".format(model, __frame)
         viewList = __viewList # range(1,5) # range(4,9) + [1] #range(1,9)
