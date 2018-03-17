@@ -8,7 +8,7 @@ import scipy.io
 
 # "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__debug = True     # If True: less models / views / batches
+__debug = False     # If True: less models / views / batches
 __define_fns = True
 __silentLog = True  # If False, the loaded images and pts_file
 
@@ -19,7 +19,7 @@ __output_data_rootFld = "./outputs"
 
 
 __DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
-__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet"
+__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV_stage012"
 __DEBUG_input_data_rootFld_exists = os.path.exists(__DEBUG_input_data_rootFld)
 __DEBUG_output_data_rootFld_exists = os.path.exists(__DEBUG_output_data_rootFld)
 __input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_exists else __input_data_rootFld
@@ -118,7 +118,7 @@ elif whatUWant is "train_model":
     __val_ON = True
     __use_pretrained_model = False
     __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
-    __sameTrainValSamples4visual = True     # If True, only train (overfit) on the same validation set.
+    __sameTrainValSamples4visual = False     # If True, only train (overfit) on the same validation set.
     __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_SimilarityNet = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
@@ -144,13 +144,13 @@ elif whatUWant is "train_model":
     __chunk_len_train = 6
     __chunk_len_val = 6
     __N_viewPairs4train = 6
-    __N_epoches = [1000, 1000, 1000] if __debug else [20, 20, 20]
+    __N_epoches = [5, 5, 5] if __debug else [20, 10, 10]
     __viewList = range(1, 5 if __debug else 50)  # only use the first 49 views for training
 
     # training function params:
     __lr = 5
     __lr_decay_per_N_epoch = 100
-    __lr_decay = np.array(0.1).astype(np.float32)
+    __lr_decay = np.array(0.1).astype(np.float32)  # should not be numpy array. Should be np.float32 scalar.
 
     __trainable_layerRange_with_SimilarityNet = ("feature_input", "output_softmaxWeights")
     __trainable_layerRange_wo_SimilarityNet = None
