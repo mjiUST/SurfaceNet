@@ -56,7 +56,9 @@ def loadFixedVar_4training():
 
 
 def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images_list,
-        dense_gt, N_batches = None, augment_ON = True, rand_viewPairs_ON = True):
+        dense_gt, 
+        randSeed = 0, 
+        N_batches = None, augment_ON = True, rand_viewPairs_ON = True):
     """
     fetch minibatches
     If N_batches is None: loop through each cube param onece. (for validation / testing)
@@ -66,8 +68,10 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
 
     N_cubes = cube_param.shape[0]
     N_views = cameraPOs_np.shape[0]
+    cube_D = cube_param['cube_D'][0]
+    npRand = np.random.RandomState(randSeed * 10000 + batchSize * 1000 + N_views * 100 + N_cubes * 10 + cube_D * 1)  # any scalar value
     if N_batches is not None: # train: randomly select
-        selectors_np = np.random.randint(0, N_cubes, (N_batches, batchSize))
+        selectors_np = npRand.randint(0, N_cubes, (N_batches, batchSize))
     else: # validation / test: select in order
         selectors_np = utils.gen_batch_npBool(N_all = N_cubes, batch_size = batchSize)
     viewPairs_all = utils.k_combination_np(range(N_views), k = 2)     # (N_combinations, 2)
@@ -76,7 +80,7 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
     for selector in selectors_np:
         N_selector = batchSize if N_batches else selector.sum()
         # generate CVC
-        viewPairs_index = np.random.randint(0, N_combinations, (N_selector, N_viewPairs)) if rand_viewPairs_ON \
+        viewPairs_index = npRand.randint(0, N_combinations, (N_selector, N_viewPairs)) if rand_viewPairs_ON \
                 else np.arange(N_combinations)[::N_combinations/N_viewPairs][:N_viewPairs][None].repeat(N_selector, axis=0)
         viewPairs = viewPairs_all[viewPairs_index] # (N_selector, N_viewPair, 2) randomly select viewPairs for each cube
         # viewPairs = np.random.randint(0, len(params.__viewList), (N_selector, N_viewPairs, 2)) # (N_selector, N_viewPair, 2) randomly select viewPairs for each cube
@@ -100,7 +104,9 @@ def prepare_minibatches(batchSize, N_viewPairs, cube_param, cameraPOs_np, images
 
 
 def traverse_models_and_select_lightConditions(N_models_inBatch, modelList, lightConditions,
-        N_on_off_surfacePts, cube_D_loaded, random_modelOrder = True, random_lightCondition = True):
+        N_on_off_surfacePts, cube_D_loaded, 
+        randSeed = 0, 
+        random_modelOrder = True, random_lightCondition = True):
     """
     Load in background
     Only load the data of few models to save memory consumption
@@ -109,6 +115,7 @@ def traverse_models_and_select_lightConditions(N_models_inBatch, modelList, ligh
         else: keep the modelIndex order as origin (used for validation)
     If random_lightCondition: load random light condition for each view of each model
         else: load specific light condition for validation
+    randSeed = 0,  # consistant randomness for the same randSeed, can be epoch / batch / _i /...
 
     inputs:
     --------
@@ -117,10 +124,12 @@ def traverse_models_and_select_lightConditions(N_models_inBatch, modelList, ligh
     --------
     modelList_2load, record_lastLightCondition4models: try not to print log in other threads, otherwise it is hard for file comparison.
     """
-
+    randGenerator = random.Random(randSeed * 100000 + N_models_inBatch * 10000 + 
+            len(modelList) * 1000 + len(lightConditions) * 100 +
+            cube_D_loaded * 10 + sum(N_on_off_surfacePts))
     modelList_copy = copy.deepcopy(modelList)
     if random_modelOrder:
-        random.shuffle(modelList_copy)
+        randGenerator.shuffle(modelList_copy)
     modelList_np = np.asarray(modelList_copy).astype(np.int)
     # Each time return N_models_inBatch models
     selectors_list = utils.gen_batch_npBool(N_all = len(modelList), batch_size = N_models_inBatch)
@@ -142,6 +151,7 @@ def traverse_models_and_select_lightConditions(N_models_inBatch, modelList, ligh
                 lightConditions = lightConditions, 
                 imgNamePattern_fn = params.imgNamePattern_fn,
                 silentLog = params.__silentLog,
+                randGenerator = random.Random(randSeed * 1000 + _iter * 100 + sum(modelList_2load) * 10),  # to reproduce (even for multi-threading)
                 random_lightCondition = random_lightCondition)
         yield _iter, N_iters, images_list, cube_param, dense_gt, modelList_2load, record_lastLightCondition4models
 
@@ -168,6 +178,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
     start_time_epoch = time.time()
     for epoch in range(N_epoch):  # how many times to iterate the entire modelList
 
+        randSeed = epoch * 10 + trainingStage # consistant randomness for the same randSeed 
         loss_batches, acc_train_batches, acc_guess_all0 = [], [], []
         print("\nEpoch {}".format(epoch))
         if (epoch%params.__lr_decay_per_N_epoch == 0) and (epoch > 1):
@@ -179,6 +190,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                         N_on_off_surfacePts = N_on_off_surfacePts_train,
                         N_models_inBatch = 1,     # randomly load data of few models to save memory consumption!
                         cube_D_loaded = params.__cube_D_loaded,
+                        randSeed = randSeed,
                         random_modelOrder = True,
                         random_lightCondition = True,
                         lightConditions = params.__random_lightConditions,
@@ -209,10 +221,14 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
 
                 for _batch, (selector, viewPairs, viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
                         N_batches = N_batches_train, # random selection in each iteration
+                        randSeed = randSeed,
                         batchSize = params.__chunk_len_train, N_viewPairs = N_viewPairs, cube_param = cube_param_train,
                         rand_viewPairs_ON = True,
+                        augment_ON = True,
                         cameraPOs_np = cameraPOs_np, images_list = images_list_train, dense_gt = dense_gt_train), max_prefetch=1)):
 
+                    if train_fn is None: # fn not defined 4 debug other parts
+                        continue
                     start_time_batch = time.time()
 
                     if patch2embedding_fn is not None:
@@ -249,14 +265,15 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                 val_acc_batches = []
                 # loop through all the models in the modelList_val. Load & process one-by-one to save memory.
                 for _, (_iter_val, N_iters_val, images_list_val, cube_param_val, dense_gt_val, modelList_2load, record_lastLightCondition4models) in \
-                        enumerate(traverse_models_and_select_lightConditions( \
+                        enumerate(BackgroundGenerator(traverse_models_and_select_lightConditions( \
                                 N_on_off_surfacePts = N_on_off_surfacePts_val,
                                 N_models_inBatch = 1,     # select all models
                                 cube_D_loaded = params.__cube_D_loaded,
+                                randSeed = randSeed,
                                 random_modelOrder = False,
                                 random_lightCondition = False,
                                 lightConditions = params.__lightConditions,
-                                modelList = params.__modelList_val)):
+                                modelList = params.__modelList_val), max_prefetch=1)):
 
                     if params.__visualizeValModel:
                         prediction_list, rgb_list, vxl_ijk_list, rayPooling_votes_list = [], [], [], []
@@ -282,9 +299,12 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                     for _batch, (selector, viewPairs, viewPairs_index, _nRGB_CVCs_sub, _CVCs2_sub, _gt_sub, images_slice) in enumerate(BackgroundGenerator(prepare_minibatches( \
                             N_batches = None,  # test all the samples rather than random selection
                             augment_ON = False,
+                            randSeed = randSeed,
                             rand_viewPairs_ON = False, # evenly sample from viewPairs set, rather than randomly select
                             batchSize = params.__chunk_len_val, N_viewPairs = N_viewPairs, cube_param = cube_param_val,
                             cameraPOs_np = cameraPOs_np, images_list = images_list_val, dense_gt = dense_gt_val), max_prefetch=1)):
+                        if val_fn is None: # fn not defined 4 debug other parts
+                            continue
 
                         if patch2embedding_fn is not None:
                             viewPairs_featureVec = utils.generate_viewPairs_featureVec( \
@@ -325,11 +345,14 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
 
                 val_acc = np.asarray(val_acc_batches).mean()
                 # move these print log from other threads to the main thread
+                # for all the validation models, only print out the last one for simplicity.
                 print("Validation iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
                         _iter_val, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))      
                 print("val_acc %g" %(val_acc))
 
 
+            if (val_fn is None) or (train_fn is None): # fn not defined 4 debug other parts
+                continue
             if _iter == N_iters-1:
                 modelFileName = 'stage{}-epoch{}_{}-{:0.3}_{:0.3}.model'.format(trainingStage, \
                         epoch, _iter, train_acc, val_acc)

@@ -108,6 +108,7 @@ def readImages(datasetFolder, imgNamePattern, viewList, return_list = True, sile
         return imgs_np
 
 def readImages_models_views_lights(datasetFolder, modelList, viewList, lightConditions, imgNamePattern_fn, 
+        randGenerator = None,  # to reproduce (even for multi-threading)
         random_lightCondition = False, silentLog = False):
     """
     Assume the images taken for the same model have the same shape.
@@ -117,6 +118,7 @@ def readImages_models_views_lights(datasetFolder, modelList, viewList, lightCond
     ------- 
     random_lightCondition: if True: select one image with random light condition
             if False: select the images from all the listed light conditions
+    randGenerator: if None: use program's randGenerator; or can define perticular random.seed for this function, say, random.Random(2), then randGenerator.randint()/... to use.
 
     outputs:
     --------
@@ -129,7 +131,10 @@ def readImages_models_views_lights(datasetFolder, modelList, viewList, lightCond
         images4lights = None
         if random_lightCondition:  # load model's view imgs with different light conditions
             for _j, _view in enumerate(viewList):
-                _light = random.sample(lightConditions, 1)[0]
+                if randGenerator is None:
+                    _light = random.sample(lightConditions, 1)[0]
+                else:
+                    _light = randGenerator.sample(lightConditions, 1)[0]
                 images4view = readImages(datasetFolder = datasetFolder, imgNamePattern = imgNamePattern_fn(_model, _light), \
                         viewList = viewList[_j: _j+1], return_list = False, silentLog = silentLog) # (1, H, W, 3)
                 if _j == 0:
