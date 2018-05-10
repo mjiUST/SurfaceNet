@@ -8,7 +8,7 @@ import scipy.io
 
 # "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__debug = False     # If True: less models / views / batches
+__debug = True     # If True: less models / views / batches
 __define_fns = True
 __silentLog = True  # If False, the loaded images and pts_file
 
@@ -119,8 +119,8 @@ elif whatUWant is "train_model":
     __use_pretrained_model = False
     __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
     __sameTrainValSamples4visual = False     # If True, only train (overfit) on the same validation set.
-    __train_SurfaceNet_wo_offSurfacePts = True  # If False, remember to specify the pretrained model, otherwise will train from scratch
-    __train_SurfaceNet_with_offSurfacePts = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_wo_offSurfacePts = False  # If False, remember to specify the pretrained model, otherwise will train from scratch
+    __train_SurfaceNet_with_offSurfacePts = False    #  If False, remember to specify the pretrained model, otherwise will train from scratch
     __train_SurfaceNet_with_SimilarityNet = True    #  If False, remember to specify the pretrained model, otherwise will train from scratch
 
 
@@ -145,7 +145,7 @@ elif whatUWant is "train_model":
     __chunk_len_val = 6
     __N_viewPairs4train = 6
     __N_epoches = [5, 5, 5] if __debug else [20, 10, 10]
-    __viewList = range(1, 5 if __debug else 50)  # only use the first 49 views for training
+    __viewList = range(1, 50 if __debug else 50)  # only use the first 49 views for training
 
     # training function params:
     __lr = 5
@@ -169,7 +169,8 @@ elif whatUWant is "train_model":
         elif __train_SurfaceNet_with_SimilarityNet:   # if ONLY train SurfaceNet + SimilarityNet
             __pretrained_SurfaceNet_model_file = 'backup_models/stage1-epoch0_4-0.781_0.754.model'
 
-        __pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
+        #__pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
+        __pretrained_SurfaceNet_model_path = '/home/mengqi/working/data/models/2D_2_3D-52-0.752_0.959.model'
         # __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
 
     else:  # Don't use pretrained model.
