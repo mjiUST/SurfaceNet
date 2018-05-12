@@ -21,19 +21,19 @@ cd -  # cd back to SurfaceNet work dir
 if conda info --env | grep -w "$conda_env_name" >/dev/null; then
     echo "The '$conda_env_name' conda env exists."    # but the env will be visible even thoug the installation was terminated. In this case you should delete this conda env first.
 else    # if the env does not exist.
-    conda create -n $conda_env_name python=2.7 anaconda --yes    # install anaconda with the majority of the depandencies, (very large)
+    conda create -n $conda_env_name --file config/conda_list_explicit.txt    # clone conda packages, (very large)
 fi
 # assume the miniconda path is ~/miniconda2/
 mkdir -p ~/miniconda2/envs/$conda_env_name/etc/conda/activate.d/
 cp ./config/act* ~/miniconda2/envs/$conda_env_name/etc/conda/activate.d/   # before copy *PLEASE* change the CUDA/CUDNN path in the first line of these files accordingly
 mkdir -p ~/miniconda2/envs/$conda_env_name/etc/conda/deactivate.d/
 cp ./config/de* ~/miniconda2/envs/$conda_env_name/etc/conda/deactivate.d/
-. activate $conda_env_name      # seperate environment. Can use command `which python` to check the path of the local python/packeges
+. activate $conda_env_name      # seperate environment. Can use command `which python` to check the path of the local python/packages
 
-# install packeges
-conda install -c rdonnelly theano -y  # 0.9.0 version theano
-pip install --upgrade https://github.com/Lasagne/Lasagne/archive/master.zip    # http://lasagne.readthedocs.io/en/latest/user/installation.html#bleeding-edge-version
-pip install plyfile progressbar
+# install pip packages
+# pip install --upgrade https://github.com/Lasagne/Lasagne/archive/master.zip    
+pip install git+git://github.com/Lasagne/Lasagne.git@7992faa
+pip install ipdb plyfile progressbar
 
 # config .theanorc,
 if ls ~/.theanorc >/dev/null; then cp ~/.theanorc ~/.theanorc_SurfaceNet_backup; echo ".theanorc_SurfaceNet_backup was backed up"; fi
