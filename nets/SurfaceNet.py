@@ -291,7 +291,7 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
                 else None
 
         #loss = __weighted_MSE__(predTrain_linear, output_var, w_for_1 = 0.98) \
-        loss = __weighted_mult_binary_sigmoidCrossentropy__(predTrain_linear, output_var, w_for_1 = 0.95) \
+        loss = __weighted_mult_binary_sigmoidCrossentropy__(predTrain_linear, output_var, w_for_1 = 0.98) \
             + regularize_layer_params(net["output_fusionNet_linear"],l2) * 1e-4 \
 
         aggregated_loss = lasagne.objectives.aggregate(loss)

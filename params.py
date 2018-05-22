@@ -8,7 +8,7 @@ import scipy.io
 
 # "reconstruct_model" / "train_model"
 whatUWant = "train_model"
-__debug = True     # If True: less models / views / batches
+__debug = False     # If True: less models / views / batches
 __define_fns = True
 __silentLog = True  # If False, the loaded images and pts_file
 
@@ -170,7 +170,8 @@ elif whatUWant is "train_model":
             __pretrained_SurfaceNet_model_file = 'backup_models/stage1-epoch0_4-0.781_0.754.model'
 
         #__pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
-        __pretrained_SurfaceNet_model_path = '/home/mengqi/working/data/models/2D_2_3D-52-0.752_0.959.model'
+        #__pretrained_SurfaceNet_model_path = '/home/mengqi/working/data/models/2D_2_3D-52-0.752_0.959.model'
+        __pretrained_SurfaceNet_model_path = '/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV_stage012/savedModels/stage1-epoch9_78-0.794_0.849.model'
         # __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
 
     else:  # Don't use pretrained model.
