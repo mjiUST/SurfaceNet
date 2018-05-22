@@ -119,6 +119,8 @@ def generate_viewPairs_featureVec( \
     e_viewPairs = patches_embedding[(index_axis0, index_axis1)].reshape((N_cubes, N_viewPairs, -1))
     theta_viewPairs = theta_viewPairs_all[..., None][(np.arange(N_cubes)[..., None].repeat(N_viewPairs, axis=1), 
             viewPairs_index)]
+    e_min = e_viewPairs.flatten().min()
+    e_viewPairs = (e_viewPairs - e_min) / (e_viewPairs.flatten().max() - e_min) # --> [0 1]
     viewPairs_featureVec = np.concatenate([e_viewPairs, d_viewPairs[..., None], theta_viewPairs], axis=-1).astype(np.float32) # (N_cubes, N_viewPairs, D_featureVec)
     return viewPairs_featureVec.reshape((N_cubes * N_viewPairs, D_featureVec)).astype(np.float32)
 

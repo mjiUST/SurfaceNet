@@ -116,7 +116,7 @@ elif whatUWant is "train_model":
 
     __train_ON = True  # will have error / stop after validation
     __val_ON = True
-    __use_pretrained_model = False
+    __use_pretrained_model = True
     __visualizeValModel = True  # If True, only visualize 1 model during validation to save time.
     __sameTrainValSamples4visual = False     # If True, only train (overfit) on the same validation set.
     __train_SurfaceNet_wo_offSurfacePts = False  # If False, remember to specify the pretrained model, otherwise will train from scratch
@@ -141,18 +141,18 @@ elif whatUWant is "train_model":
     __soft_label = False
     __cube_D = 32 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
     __cube_D_loaded = 50    # CVC size before random crop
-    __chunk_len_train = 6
-    __chunk_len_val = 6
+    __chunk_len_train = 4
+    __chunk_len_val = 4
     __N_viewPairs4train = 6
-    __N_epoches = [5, 5, 5] if __debug else [20, 10, 10]
-    __viewList = range(1, 50 if __debug else 50)  # only use the first 49 views for training
+    __N_epoches = [5, 5, 50] if __debug else [20, 10, 20]
+    __viewList = range(1, 5 if __debug else 50)  # only use the first 49 views for training
 
     # training function params:
     __lr = 5
     __lr_decay_per_N_epoch = 100
     __lr_decay = np.array(0.1).astype(np.float32)  # should not be numpy array. Should be np.float32 scalar.
 
-    __trainable_layerRange_with_SimilarityNet = ("feature_input", "output_softmaxWeights")
+    __trainable_layerRange_with_SimilarityNet = None  #("feature_input", "output_softmaxWeights")
     __trainable_layerRange_wo_SimilarityNet = None
     __layer_2_save_SurfaceNet = "output_SurfaceNet_channelPool_linear"
     __layer_2_save_fusionNet = "output_fusionNet_linear"
