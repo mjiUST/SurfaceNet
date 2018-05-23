@@ -241,7 +241,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                                 batchSize_embeddingPair2simil = params.__batchSize_similNet_embeddingPair2simil,
                                 embeddingPair2simil_fn = embeddingPair2simil_fn
                                 )
-                        train_loss, acc, train_predict, output_softmaxWeights = train_fn(_CVCs2_sub, viewPairs_featureVec, _gt_sub)
+                        train_loss, acc, train_predict, train_balancor, output_softmaxWeights = train_fn(_CVCs2_sub, viewPairs_featureVec, _gt_sub)
                                             # if params.__N_viewPairs4train == 1 \
                                             # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
                     else:  # without relative importance
@@ -253,7 +253,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
 
                     loss_batches.append(np.sum(train_loss))
                     acc_train_batches.append(float(acc))
-                    acc_guess_all0.append(1-float(_gt_sub.sum())/_gt_sub.size)
+                    acc_guess_all0.append(train_balancor)
                     if (_batch % (N_batches_train / 3 + 1)) == 0:     # only print results of few batches
                         train_acc = np.asarray(acc_train_batches).mean()
                         print("Batch %d: Loss %g, train_acc %g, acc_guess_all0 %g" % \

@@ -34,7 +34,7 @@ fi
 # install packeges
 conda install theano pygpu --yes    # http://www.deeplearning.net/software/theano/install_ubuntu.html#requirements-installation-through-conda-recommended
 pip install --upgrade https://github.com/Lasagne/Lasagne/archive/master.zip    # http://lasagne.readthedocs.io/en/latest/user/installation.html#bleeding-edge-version
-pip install plyfile progressbar
+pip install plyfile progressbar prefetch_generator
 
 # config .theanorc,
 if ls ~/.theanorc >/dev/null; then cp ~/.theanorc ~/.theanorc_backup; echo ".theanorc_backup was backed up"; fi
