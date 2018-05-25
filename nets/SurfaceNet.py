@@ -269,6 +269,8 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
     output_var = tensor5D('Y')
     similFeature_var = T.matrix('similFeature')
 
+    balancor_01 = 1.0 - ((output_var > 0.5).sum() * 1.0 / output_var.size)  # balance the 0 / 1 samples
+
     net = __weightedAverage_net__(input_var, similFeature_var, input_cube_size, N_viewPairs,\
             D_viewPairFeature, num_hidden_units, with_relativeImpt)
     if return_val_fn:
@@ -291,7 +293,7 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
                 else None
 
         #loss = __weighted_MSE__(predTrain_linear, output_var, w_for_1 = 0.98) \
-        loss = __weighted_mult_binary_sigmoidCrossentropy__(predTrain_linear, output_var, w_for_1 = 0.96) \
+        loss = __weighted_mult_binary_sigmoidCrossentropy__(predTrain_linear, output_var, w_for_1 = balancor_01) \
             + regularize_layer_params(net["output_fusionNet_linear"],l2) * 1e-4 \
 
         aggregated_loss = lasagne.objectives.aggregate(loss)
@@ -311,8 +313,8 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
 
         train_fn_input_var_list = [input_var, similFeature_var, output_var] if with_relativeImpt \
                 else [input_var, output_var]
-        train_fn_output_var_list = [loss,accuracy, predTrain_sigmoid, output_softmaxWeights_var] if with_relativeImpt \
-                else [loss,accuracy, predTrain_sigmoid]
+        train_fn_output_var_list = [loss,accuracy, predTrain_sigmoid, balancor_01, output_softmaxWeights_var] if with_relativeImpt \
+                else [loss,accuracy, predTrain_sigmoid, balancor_01]
 
         train_fn = theano.function(train_fn_input_var_list, train_fn_output_var_list, updates=updates)
     return net, train_fn, val_fn

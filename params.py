@@ -19,7 +19,7 @@ __output_data_rootFld = "./outputs"
 
 
 __DEBUG_input_data_rootFld = "/home/mengqi/fileserver/datasets"     # used for debug: if exists, use this path
-__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV_stage012"
+__DEBUG_output_data_rootFld = "/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV_01balance_stage012"
 __DEBUG_input_data_rootFld_exists = os.path.exists(__DEBUG_input_data_rootFld)
 __DEBUG_output_data_rootFld_exists = os.path.exists(__DEBUG_output_data_rootFld)
 __input_data_rootFld = __DEBUG_input_data_rootFld if __DEBUG_input_data_rootFld_exists else __input_data_rootFld
@@ -141,10 +141,10 @@ elif whatUWant is "train_model":
     __soft_label = False
     __cube_D = 32 # size of the CVC = __cube_D ^3, in the paper it is (s,s,s)
     __cube_D_loaded = 50    # CVC size before random crop
-    __chunk_len_train = 6
-    __chunk_len_val = 6
+    __chunk_len_train = 4
+    __chunk_len_val = 4
     __N_viewPairs4train = 6
-    __N_epoches = [5, 5, 5] if __debug else [20, 10, 10]
+    __N_epoches = [5, 5, 50] if __debug else [20, 10, 20]
     __viewList = range(1, 5 if __debug else 50)  # only use the first 49 views for training
 
     # training function params:
@@ -152,7 +152,7 @@ elif whatUWant is "train_model":
     __lr_decay_per_N_epoch = 100
     __lr_decay = np.array(0.1).astype(np.float32)  # should not be numpy array. Should be np.float32 scalar.
 
-    __trainable_layerRange_with_SimilarityNet = ("feature_input", "output_softmaxWeights")
+    __trainable_layerRange_with_SimilarityNet = None  #("feature_input", "output_softmaxWeights")
     __trainable_layerRange_wo_SimilarityNet = None
     __layer_2_save_SurfaceNet = "output_SurfaceNet_channelPool_linear"
     __layer_2_save_fusionNet = "output_fusionNet_linear"
@@ -169,7 +169,9 @@ elif whatUWant is "train_model":
         elif __train_SurfaceNet_with_SimilarityNet:   # if ONLY train SurfaceNet + SimilarityNet
             __pretrained_SurfaceNet_model_file = 'backup_models/stage1-epoch0_4-0.781_0.754.model'
 
-        __pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
+        #__pretrained_SurfaceNet_model_path = os.path.join(__output_data_rootFld, __pretrained_SurfaceNet_model_file)
+        #__pretrained_SurfaceNet_model_path = '/home/mengqi/working/data/models/2D_2_3D-52-0.752_0.959.model'
+        __pretrained_SurfaceNet_model_path = '/home/mengqi/fileserver/results/MVS/SurfaceNet_ICCV_stage012/savedModels/stage1-epoch9_78-0.794_0.849.model'
         # __pretrained_SurfaceNet_model_path = os.path.join(__input_data_rootFld, __pretrained_SurfaceNet_model_file)
 
     else:  # Don't use pretrained model.
