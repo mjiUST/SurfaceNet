@@ -245,7 +245,7 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                                             # if params.__N_viewPairs4train == 1 \
                                             # else nViewPair_SurfaceNet_fn(_CVCs2_sub, w_viewPairs4Reconstr[_batch[validCubes]])
                     else:  # without relative importance
-                        train_loss, acc, train_predict = train_fn(_CVCs2_sub, _gt_sub)
+                        train_loss, acc, train_predict, train_balancor = train_fn(_CVCs2_sub, _gt_sub)
                     ## print("batch / epoch time {} / {}".format(time.time() - start_time_batch, time.time() - start_time_epoch))
                     if math.isnan(train_loss.mean()):
                         print('Loss is nan!')

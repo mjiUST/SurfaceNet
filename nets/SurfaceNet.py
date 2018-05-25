@@ -274,16 +274,16 @@ def __SurfaceNet_fn_trainVal__(N_viewPairs, default_lr, input_cube_size, D_viewP
     net = __weightedAverage_net__(input_var, similFeature_var, input_cube_size, N_viewPairs,\
             D_viewPairFeature, num_hidden_units, with_relativeImpt)
     if return_val_fn:
-        predVal_linear = lasagne.layers.get_output(net["output_fusionNet_sigmoid"], deterministic=True)
-        # accuracy_val = lasagne.objectives.binary_accuracy(predVal_linear, output_var) # in case soft_label
-        accuracy_val = __weighted_accuracy__(predVal_linear, output_var)
+        predVal = lasagne.layers.get_output(net["output_fusionNet_sigmoid"], deterministic=True)
+        # accuracy_val = lasagne.objectives.binary_accuracy(predVal, output_var) # in case soft_label
+        accuracy_val = __weighted_accuracy__(predVal, output_var)
 
-        # fuseNet_val_fn = theano.function([input_var, output_var], [accuracy_val,predVal_linear])
+        # fuseNet_val_fn = theano.function([input_var, output_var], [accuracy_val,predVal])
 
         val_fn_input_var_list = [input_var, similFeature_var, output_var] if with_relativeImpt\
                 else [input_var, output_var]
-        val_fn_output_var_list = [accuracy_val,predVal_linear] if with_relativeImpt\
-                else [accuracy_val,predVal_linear]
+        val_fn_output_var_list = [accuracy_val,predVal] if with_relativeImpt\
+                else [accuracy_val,predVal]
         val_fn = theano.function(val_fn_input_var_list, val_fn_output_var_list)
     
     if return_train_fn:
