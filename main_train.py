@@ -346,8 +346,8 @@ def train(cameraPOs_np, cameraTs_np, lr_tensor = None, trainingStage = 0,
                 val_acc = np.asarray(val_acc_batches).mean()
                 # move these print log from other threads to the main thread
                 # for all the validation models, only print out the last one for simplicity.
-                print("Validation iter {}: N_on_off_surfacePts_train: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
-                        _iter_val, N_on_off_surfacePts_train, modelList_2load, record_lastLightCondition4models))      
+                print("Validation iter {}: N_on_off_surfacePts_val: {}; ModelList_2load: {}; Record_lastLightCondition4models: {}".format( \
+                        _iter_val, N_on_off_surfacePts_val, modelList_2load, record_lastLightCondition4models))      
                 print("val_acc %g" %(val_acc))
 
 
