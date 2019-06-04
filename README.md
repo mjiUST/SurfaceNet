@@ -4,6 +4,9 @@ M. Ji, J. Gall, H. Zheng, Y. Liu, and L. Fang. [SurfaceNet: An End-to-end 3D Neu
 
 The [poster pdf](https://www.researchgate.net/publication/321126305_ICCV2017_SurfaceNet_poster) is also available.
 
+![SurfaceNet experiment results](figures/experiment.png?raw=true "SurfaceNet experiment results")
+![SurfaceNet pipeline](figures/pipeline.png?raw=true "SurfaceNet pipeline")
+
 ## How to run
 
 1. install [Nvidia driver 375 + cuda 8.0 + cudnn v5.1](https://github.com/mjiUST/driver_cuda_cudnn)
