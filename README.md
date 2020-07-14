@@ -1,3 +1,6 @@
+# News
+- [SurfaceNet+](https://github.com/mjiUST/SurfaceNet-plus) is available in 2020 TPAMI!
+
 # SurfaceNet
 
 M. Ji, J. Gall, H. Zheng, Y. Liu, and L. Fang. [SurfaceNet: An End-to-end 3D Neural Network for Multiview Stereopsis](https://www.researchgate.net/publication/318920947_SurfaceNet_An_End-to-end_3D_Neural_Network_for_Multiview_Stereopsis). ICCV, 2017
@@ -34,7 +37,7 @@ If you find SurfaceNet useful in your research, please consider citing:
     @inproceedings{ji2017surfacenet,
       title={SurfaceNet: An End-To-End 3D Neural Network for Multiview Stereopsis},
       author={Ji, Mengqi and Gall, Juergen and Zheng, Haitian and Liu, Yebin and Fang, Lu},
-      booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+      booktitle={Proceedings of the IEEE International Conference on Computer Vision (ICCV)},
       pages={2307--2315},
       year={2017}
     }
